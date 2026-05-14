@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events'
 import { detectProfile } from './profiles'
 import { TrainerDevice } from './trainerDevice'
+import { log } from '../logger'
 import type { DiscoveredDevice, TrainerReading, DeviceStatus } from '../../shared/types'
 
 export class BLEManager extends EventEmitter {
@@ -87,7 +88,7 @@ export class BLEManager extends EventEmitter {
     const serviceUUIDs: string[] = p.advertisement?.serviceUuids || []
     const profile = detectProfile(serviceUUIDs)
 
-    console.log(`[BLE] discovered: ${name} | profile: ${profile} | services: ${serviceUUIDs.join(', ')}`)
+    log(`[BLE] discovered: ${name} | profile: ${profile} | services: ${serviceUUIDs.join(', ')}`)
 
     if (!this.devices.has(id)) {
       const device = new TrainerDevice(p)

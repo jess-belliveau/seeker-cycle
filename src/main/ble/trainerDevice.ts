@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events'
 import { detectProfile, FTMSProfile, CyclingPowerProfile, CSCProfile } from './profiles'
+import { log, warn } from '../logger'
 import type { BLEProfile, TrainerReading, DeviceStatus } from '../../shared/types'
 
 type AnyProfile = FTMSProfile | CyclingPowerProfile | CSCProfile
@@ -55,7 +56,7 @@ export class TrainerDevice extends EventEmitter {
 
     void services
 
-    console.log(`[BLE] ${this.name} connected | profile: ${this.detectedProfile} | characteristics: ${characteristics.map((c: any) => c.uuid).join(', ')}`)
+    log(`[BLE] ${this.name} connected | profile: ${this.detectedProfile} | characteristics: ${characteristics.map((c: any) => c.uuid).join(', ')}`)
 
     this.profile = this.createProfile(characteristics)
     if (this.profile) {
@@ -115,7 +116,7 @@ export class TrainerDevice extends EventEmitter {
       return p
     }
 
-    console.warn(`[BLE] ${this.name}: no known characteristics found`)
+    warn(`[BLE] ${this.name}: no known characteristics found`)
     return null
   }
 }

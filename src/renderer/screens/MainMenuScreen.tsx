@@ -2,6 +2,7 @@ import React, { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLeaderboardStore } from '../store/leaderboardStore'
 import { useDeviceStore } from '../store/deviceStore'
+import { useSettingsStore } from '../store/settingsStore'
 import { C, pixelBox, pixelBtn, sunsetBg } from '../theme'
 
 interface GameMode {
@@ -31,6 +32,7 @@ export function MainMenuScreen(): React.ReactElement {
   const navigate = useNavigate()
   const { entries, loading, load } = useLeaderboardStore()
   const { connected } = useDeviceStore()
+  const { adminMode, toggleAdminMode } = useSettingsStore()
   const connectedDevices = Object.values(connected).filter((d) => d.status === 'connected')
   const top5 = entries.slice(0, 5)
 
@@ -49,6 +51,12 @@ export function MainMenuScreen(): React.ReactElement {
             ★ CALIFORNIA GAMES EDITION ★ PEDAL HARD ★ RIDE FAST ★ &nbsp;
           </div>
         </div>
+        <button
+          style={{ ...pixelBtn(C.pink), ...styles.quitBtn }}
+          onClick={() => window.api.app.quit()}
+        >
+          ■ QUIT
+        </button>
       </div>
 
       {/* Body */}
@@ -81,6 +89,14 @@ export function MainMenuScreen(): React.ReactElement {
             onClick={() => navigate('/devices')}
           >
             ⚡ CONNECT DEVICES
+          </button>
+
+          <button
+            style={{ ...styles.adminToggle, ...(adminMode ? styles.adminToggleOn : {}) }}
+            onClick={toggleAdminMode}
+          >
+            <span style={styles.adminDot} />
+            ADMIN MODE {adminMode ? 'ON' : 'OFF'}
           </button>
         </div>
 
@@ -128,7 +144,12 @@ export function MainMenuScreen(): React.ReactElement {
             <div style={{ ...pixelBox(C.green), ...styles.debugBox }}>
               <div style={{ ...styles.lbTitle, color: C.green }}>◉ LIVE DEVICES</div>
               {connectedDevices.map((d) => (
-                <DeviceDebugRow key={d.id} deviceId={d.id} name={d.name} />
+                <DeviceDebugRow
+                  key={d.id}
+                  deviceId={d.id}
+                  name={d.name}
+                  onDisconnect={() => window.api.ble.disconnect(d.id).catch(console.error)}
+                />
               ))}
             </div>
           )}
@@ -140,7 +161,13 @@ export function MainMenuScreen(): React.ReactElement {
   )
 }
 
-function DeviceDebugRow({ deviceId, name }: { deviceId: string; name: string }): React.ReactElement {
+function DeviceDebugRow({
+  deviceId, name, onDisconnect
+}: {
+  deviceId: string
+  name: string
+  onDisconnect: () => void
+}): React.ReactElement {
   const reading = useDeviceStore((s) => s.liveReadings[deviceId])
   const w = reading ? Math.round(reading.watts) : 0
   const rpm = reading ? Math.round(reading.rpm) : 0
@@ -150,6 +177,12 @@ function DeviceDebugRow({ deviceId, name }: { deviceId: string; name: string }):
       <span style={styles.debugName}>{name.slice(0, 14)}</span>
       <span style={{ ...styles.debugVal, color: C.cyan }}>{String(w).padStart(3,'0')}W</span>
       <span style={{ ...styles.debugVal, color: C.pink }}>{String(rpm).padStart(3,'0')}rpm</span>
+      <button
+        style={{ ...pixelBtn(C.muted), ...styles.disconnectBtn }}
+        onClick={onDisconnect}
+      >
+        ✕
+      </button>
     </div>
   )
 }
@@ -288,4 +321,28 @@ const styles: Record<string, React.CSSProperties> = {
   },
   debugName: { fontSize: 7, color: C.dim, flex: 1 },
   debugVal: { fontSize: 11, textShadow: `1px 1px 0 ${C.black}` },
+  disconnectBtn: { padding: '4px 8px', fontSize: 8 },
+
+  quitBtn: { padding: '8px 14px', fontSize: 8, letterSpacing: 1, flexShrink: 0 },
+
+  adminToggle: {
+    display: 'flex', alignItems: 'center', gap: 8,
+    padding: '8px 12px',
+    background: 'transparent',
+    border: `2px solid ${C.muted}`,
+    boxShadow: `3px 3px 0 ${C.black}`,
+    color: C.muted,
+    fontSize: 7, letterSpacing: 2,
+    cursor: 'pointer',
+    textAlign: 'left' as const,
+  },
+  adminToggleOn: {
+    border: `2px solid ${C.green}`,
+    color: C.green,
+  },
+  adminDot: {
+    display: 'inline-block', width: 8, height: 8,
+    background: 'currentColor',
+    flexShrink: 0,
+  },
 }

@@ -11,5 +11,9 @@ export const IPC_CHANNELS = {
   // Main → Renderer (send/on)
   BLE_DEVICE_DISCOVERED: 'ble:device-discovered',
   BLE_DEVICE_STATUS_CHANGED: 'ble:device-status-changed',
-  BLE_TRAINER_READING: 'ble:trainer-reading'
+  BLE_TRAINER_READING: 'ble:trainer-reading',
+
+  // App
+  APP_QUIT: 'app:quit',
+  DEBUG_SET_VERBOSE: 'debug:set-verbose',
 } as const

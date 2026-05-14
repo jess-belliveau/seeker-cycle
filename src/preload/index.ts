@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '../shared/channels'
 import type { WindowAPI, DiscoveredDevice, DeviceStatus, TrainerReading, SessionResult } from '../shared/types'
 
+
 contextBridge.exposeInMainWorld('api', {
   ble: {
     startScan: () => ipcRenderer.invoke(IPC_CHANNELS.BLE_START_SCAN),
@@ -34,5 +35,14 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(IPC_CHANNELS.DATA_SAVE_SESSION, result),
     loadSessions: () => ipcRenderer.invoke(IPC_CHANNELS.DATA_LOAD_SESSIONS),
     loadLeaderboard: () => ipcRenderer.invoke(IPC_CHANNELS.DATA_LOAD_LEADERBOARD)
+  },
+
+  app: {
+    quit: () => ipcRenderer.invoke(IPC_CHANNELS.APP_QUIT)
+  },
+
+  debug: {
+    setVerbose: (enabled: boolean) =>
+      ipcRenderer.invoke(IPC_CHANNELS.DEBUG_SET_VERBOSE, enabled)
   }
 } satisfies WindowAPI)

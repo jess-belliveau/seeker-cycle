@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events'
 import { hasBit, readUInt16LE, readInt16LE } from '../bleUtils'
+import { log, warn } from '../../logger'
 import type { TrainerReading } from '../../../shared/types'
 
 // FTMS Indoor Bike Data characteristic (0x2AD2)
@@ -29,15 +30,15 @@ export class FTMSProfile extends EventEmitter {
       (c: any) => c.uuid.replace(/-/g, '').toLowerCase() === FTMSProfile.INDOOR_BIKE_DATA_UUID
     )
     if (!char) {
-      console.warn('[FTMS] Indoor Bike Data characteristic (2ad2) not found')
+      warn('[FTMS] Indoor Bike Data characteristic (2ad2) not found')
       return
     }
-    console.log('[FTMS] subscribed to Indoor Bike Data')
+    log('[FTMS] subscribed to Indoor Bike Data')
 
     char.on('data', (data: Buffer) => {
-      console.log('[FTMS] raw data:', data.toString('hex'), '| length:', data.length)
+      log('[FTMS] raw data:', data.toString('hex'), '| length:', data.length)
       const reading = this.parseIndoorBikeData(data)
-      console.log('[FTMS] parsed:', reading)
+      log('[FTMS] parsed:', reading)
       if (reading) this.emit('reading', reading)
     })
     char.subscribe(() => {})

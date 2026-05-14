@@ -2,6 +2,8 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { registerBLEHandlers } from './ipc/bleHandlers'
 import { registerDataHandlers } from './ipc/dataHandlers'
+import { setVerbose } from './logger'
+import { IPC_CHANNELS } from '../shared/channels'
 import type { BLEManager } from './ble/bleManager'
 
 let mainWindow: BrowserWindow | null = null
@@ -38,6 +40,8 @@ function createWindow(): void {
 app.whenReady().then(() => {
   bleManager = registerBLEHandlers(ipcMain, () => mainWindow)
   registerDataHandlers(ipcMain)
+  ipcMain.handle(IPC_CHANNELS.APP_QUIT, () => app.quit())
+  ipcMain.handle(IPC_CHANNELS.DEBUG_SET_VERBOSE, (_e, enabled: boolean) => setVerbose(enabled))
   createWindow()
 
   app.on('activate', () => {

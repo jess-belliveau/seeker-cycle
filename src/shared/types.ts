@@ -115,9 +115,19 @@ export interface DataAPI {
   loadLeaderboard: () => Promise<LeaderboardEntry[]>
 }
 
+export interface AppAPI {
+  quit: () => void
+}
+
+export interface DebugAPI {
+  setVerbose: (enabled: boolean) => void
+}
+
 export interface WindowAPI {
   ble: BLEAPI
   data: DataAPI
+  app: AppAPI
+  debug: DebugAPI
 }
 
 declare global {
