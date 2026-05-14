@@ -303,7 +303,7 @@ export function CharacterSelectScreen(): React.ReactElement {
                   onClick={() => handleCharClick(idx)}
                 >
                   {takenByCurrent && <div style={styles.selectFlash} />}
-                  <CharacterPortrait color={char.color} idx={idx} scale={1} />
+                  <CharacterPortrait color={char.color} idx={idx} scale={2} />
                   <div style={{ ...styles.cardName, color: char.color }}>{char.name}</div>
                   <div style={styles.cardSub}>{char.subtitle}</div>
                   {takenByLabel && (
@@ -399,7 +399,7 @@ export function CharacterSelectScreen(): React.ReactElement {
       <div style={styles.footer}>
         <div style={styles.footerLeft}>
           {allDone && (
-            <span style={styles.allReady}>ALL FIGHTERS READY!</span>
+            <span style={styles.allReady}>ALL RIDERS READY!</span>
           )}
         </div>
         <button
@@ -533,8 +533,8 @@ const styles: Record<string, React.CSSProperties> = {
     background: C.bgMid,
     border: `3px solid`,
     display: 'flex', flexDirection: 'column', alignItems: 'center',
-    padding: '8px 6px',
-    gap: 4,
+    padding: '10px 8px',
+    gap: 6,
     position: 'relative',
     overflow: 'hidden',
     transition: 'box-shadow 0.15s',
