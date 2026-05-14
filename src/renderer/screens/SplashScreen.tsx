@@ -1,15 +1,97 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { C, sunsetBg } from '../theme'
+import type { RaceState, RiderState } from '../types'
+import { RaceTrack } from '../components/race/RaceTrack'
+import { wattsToVelocity } from '../store/raceStore'
+
+// ── Demo race ─────────────────────────────────────────────────────────────────
+
+const DEMO_TIMEOUT_MS = 30_000
+const DEMO_DISTANCE_M = 2000
+const DEMO_CONFIG = [
+  { deviceId: 'd1', initials: 'ACE', avatarIndex: 0, basePower: 265, phase: 0.0 },
+  { deviceId: 'd2', initials: 'REX', avatarIndex: 2, basePower: 242, phase: 1.7 },
+]
+
+function makeDemoRace(): RaceState {
+  const riders: Record<string, RiderState> = {}
+  for (const cfg of DEMO_CONFIG) {
+    riders[cfg.deviceId] = {
+      deviceId: cfg.deviceId, initials: cfg.initials, avatarIndex: cfg.avatarIndex,
+      positionMeters: 0, velocityMs: 0,
+      currentWatts: cfg.basePower, currentRpm: 85,
+      totalWatts: 0, maxWatts: cfg.basePower, totalRpm: 0, readingCount: 0,
+      finishTimeMs: null, rank: null,
+    }
+  }
+  return {
+    status: 'racing',
+    config: { distanceMeters: DEMO_DISTANCE_M, countdownSeconds: 0, physicsMode: 'flat-watts' },
+    startTimeMs: Date.now(), elapsedMs: 0,
+    riders, finishOrder: [],
+  }
+}
+
+function tickDemo(prev: RaceState, deltaMs: number): RaceState {
+  if (prev.status === 'finished') return prev
+  const clampedDt = Math.min(deltaMs, 100)
+  const elapsedMs = prev.elapsedMs + clampedDt
+  const dt = clampedDt / 1000
+  const t = elapsedMs / 1000
+
+  const riders: Record<string, RiderState> = {}
+  const finishOrder = [...prev.finishOrder]
+
+  for (const cfg of DEMO_CONFIG) {
+    const r = { ...prev.riders[cfg.deviceId] }
+    if (r.finishTimeMs !== null) { riders[cfg.deviceId] = r; continue }
+
+    const watts = Math.max(80,
+      cfg.basePower + Math.sin(t * 0.3 + cfg.phase) * 28 + Math.sin(t * 1.3 + cfg.phase * 1.7) * 12
+    )
+    const targetV = wattsToVelocity(watts)
+    r.velocityMs   = r.velocityMs * 0.85 + targetV * 0.15
+    r.positionMeters = Math.min(r.positionMeters + r.velocityMs * dt, prev.config.distanceMeters)
+    r.currentWatts = watts
+    r.currentRpm   = 82 + Math.sin(t * 0.5 + cfg.phase) * 8
+
+    if (r.positionMeters >= prev.config.distanceMeters) {
+      r.finishTimeMs = elapsedMs
+      r.rank = finishOrder.length + 1
+      finishOrder.push(r.deviceId)
+    }
+    riders[cfg.deviceId] = r
+  }
+
+  return {
+    ...prev, elapsedMs, riders, finishOrder,
+    status: finishOrder.length === DEMO_CONFIG.length ? 'finished' : 'racing',
+  }
+}
+
+// ── Splash screen ─────────────────────────────────────────────────────────────
 
 export function SplashScreen(): React.ReactElement {
   const navigate = useNavigate()
+  const [showDemo, setShowDemo] = useState(false)
 
+  // Start/restart the 30s idle timer whenever the splash is visible
   useEffect(() => {
-    const onKey = (): void => navigate('/menu')
+    if (showDemo) return
+    const id = setTimeout(() => setShowDemo(true), DEMO_TIMEOUT_MS)
+    return () => clearTimeout(id)
+  }, [showDemo])
+
+  // Key handler: interrupt demo → back to splash; else → menu
+  useEffect(() => {
+    function onKey(): void {
+      if (showDemo) { setShowDemo(false) }
+      else          { navigate('/menu')  }
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [navigate])
+  }, [navigate, showDemo])
 
   return (
     <div style={{ ...styles.container, ...sunsetBg }}>
@@ -98,7 +180,42 @@ export function SplashScreen(): React.ReactElement {
         <div style={styles.copyright}>© 2025 SEEKER LABS · ALL RIGHTS RESERVED</div>
       </div>
 
+      {showDemo && <DemoRace />}
       <style>{css}</style>
+    </div>
+  )
+}
+
+// ── Demo race overlay ─────────────────────────────────────────────────────────
+
+function DemoRace(): React.ReactElement {
+  const [race, setRace] = useState<RaceState>(makeDemoRace)
+  const rafRef  = useRef<number>(0)
+  const lastRef = useRef<number>(0)
+
+  useEffect(() => {
+    function tick(now: number): void {
+      const dt = lastRef.current ? now - lastRef.current : 0
+      lastRef.current = now
+      setRace((prev) => tickDemo(prev, dt))
+      rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [])
+
+  // Auto-reset 4s after finish
+  useEffect(() => {
+    if (race.status !== 'finished') return
+    const id = setTimeout(() => setRace(makeDemoRace()), 4000)
+    return () => clearTimeout(id)
+  }, [race.status])
+
+  return (
+    <div style={styles.demoOverlay}>
+      <RaceTrack race={race} windowWidth={window.innerWidth} />
+      <div style={styles.demoBadge}>◆ DEMO ◆</div>
+      <div style={styles.demoPrompt}>PRESS ANY KEY TO PLAY</div>
     </div>
   )
 }
@@ -332,5 +449,30 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 4,
     fontSize: 6, color: C.muted,
     letterSpacing: 2,
+  },
+
+  demoOverlay: {
+    position: 'absolute', inset: 0, zIndex: 20,
+  },
+  demoBadge: {
+    position: 'absolute', top: 24, left: '50%',
+    transform: 'translateX(-50%)',
+    fontSize: 22, color: C.yellow, letterSpacing: 8,
+    background: 'rgba(0,0,0,0.85)',
+    border: `4px solid ${C.orange}`,
+    padding: '12px 40px',
+    boxShadow: `4px 4px 0 #000`,
+    animation: 'blink 1s step-end infinite',
+    whiteSpace: 'nowrap',
+  },
+  demoPrompt: {
+    position: 'absolute', bottom: 32, left: '50%',
+    transform: 'translateX(-50%)',
+    fontSize: 16, color: C.green, letterSpacing: 4,
+    background: 'rgba(0,0,0,0.85)',
+    padding: '12px 32px',
+    border: `3px solid ${C.green}`,
+    whiteSpace: 'nowrap',
+    animation: 'pressBlink 0.9s step-end infinite',
   },
 }
