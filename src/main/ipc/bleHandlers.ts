@@ -3,7 +3,7 @@ import { IPC_CHANNELS } from '../../shared/channels'
 import { BLEManager } from '../ble/bleManager'
 import type { DiscoveredDevice, DeviceStatus, TrainerReading } from '../../shared/types'
 
-export function registerBLEHandlers(ipcMain: IpcMain, getWindow: () => BrowserWindow | null): void {
+export function registerBLEHandlers(ipcMain: IpcMain, getWindow: () => BrowserWindow | null): BLEManager {
   const manager = new BLEManager()
 
   const send = (channel: string, ...args: unknown[]): void => {
@@ -30,4 +30,6 @@ export function registerBLEHandlers(ipcMain: IpcMain, getWindow: () => BrowserWi
   ipcMain.handle(IPC_CHANNELS.BLE_DISCONNECT, (_event, deviceId: string) =>
     manager.disconnectDevice(deviceId)
   )
+
+  return manager
 }

@@ -28,10 +28,16 @@ export class FTMSProfile extends EventEmitter {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (c: any) => c.uuid.replace(/-/g, '').toLowerCase() === FTMSProfile.INDOOR_BIKE_DATA_UUID
     )
-    if (!char) return
+    if (!char) {
+      console.warn('[FTMS] Indoor Bike Data characteristic (2ad2) not found')
+      return
+    }
+    console.log('[FTMS] subscribed to Indoor Bike Data')
 
     char.on('data', (data: Buffer) => {
+      console.log('[FTMS] raw data:', data.toString('hex'), '| length:', data.length)
       const reading = this.parseIndoorBikeData(data)
+      console.log('[FTMS] parsed:', reading)
       if (reading) this.emit('reading', reading)
     })
     char.subscribe(() => {})

@@ -2,8 +2,10 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { registerBLEHandlers } from './ipc/bleHandlers'
 import { registerDataHandlers } from './ipc/dataHandlers'
+import type { BLEManager } from './ble/bleManager'
 
 let mainWindow: BrowserWindow | null = null
+let bleManager: BLEManager | null = null
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -34,7 +36,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
-  registerBLEHandlers(ipcMain, () => mainWindow)
+  bleManager = registerBLEHandlers(ipcMain, () => mainWindow)
   registerDataHandlers(ipcMain)
   createWindow()
 
@@ -45,4 +47,12 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
+})
+
+app.on('before-quit', (event) => {
+  if (!bleManager) return
+  event.preventDefault()
+  const manager = bleManager
+  bleManager = null
+  manager.destroy().finally(() => app.exit(0))
 })

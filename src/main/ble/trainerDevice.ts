@@ -55,6 +55,8 @@ export class TrainerDevice extends EventEmitter {
 
     void services
 
+    console.log(`[BLE] ${this.name} connected | profile: ${this.detectedProfile} | characteristics: ${characteristics.map((c: any) => c.uuid).join(', ')}`)
+
     this.profile = this.createProfile(characteristics)
     if (this.profile) {
       this.profile.on('reading', (partial: Partial<TrainerReading>) => {
@@ -90,24 +92,30 @@ export class TrainerDevice extends EventEmitter {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private createProfile(characteristics: any[]): AnyProfile | null {
-    switch (this.detectedProfile) {
-      case 'ftms': {
-        const p = new FTMSProfile()
-        p.subscribe(characteristics)
-        return p
-      }
-      case 'cycling-power': {
-        const p = new CyclingPowerProfile()
-        p.subscribe(characteristics)
-        return p
-      }
-      case 'csc': {
-        const p = new CSCProfile()
-        p.subscribe(characteristics)
-        return p
-      }
-      default:
-        return null
+    // Detect from actual discovered characteristics — more reliable than
+    // advertisement data which can arrive before service UUIDs are populated.
+    const uuids = new Set(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      characteristics.map((c: any) => c.uuid.replace(/-/g, '').toLowerCase())
+    )
+
+    if (uuids.has('2ad2')) {
+      const p = new FTMSProfile()
+      p.subscribe(characteristics)
+      return p
     }
+    if (uuids.has('2a63')) {
+      const p = new CyclingPowerProfile()
+      p.subscribe(characteristics)
+      return p
+    }
+    if (uuids.has('2a5b')) {
+      const p = new CSCProfile()
+      p.subscribe(characteristics)
+      return p
+    }
+
+    console.warn(`[BLE] ${this.name}: no known characteristics found`)
+    return null
   }
 }

@@ -1,5 +1,5 @@
 import { app } from 'electron'
-import { join } from 'path'
+import { join, dirname } from 'path'
 import { readFile, writeFile, mkdir, rename } from 'fs/promises'
 import type { SessionResult, LeaderboardEntry, RiderSessionResult } from '../../shared/types'
 
@@ -27,6 +27,7 @@ async function readJSON<T>(filePath: string, fallback: T): Promise<T> {
 }
 
 async function writeJSON<T>(filePath: string, data: T): Promise<void> {
+  await mkdir(dirname(filePath), { recursive: true })
   const tmp = filePath + '.tmp'
   await writeFile(tmp, JSON.stringify(data, null, 2), 'utf-8')
   await rename(tmp, filePath)

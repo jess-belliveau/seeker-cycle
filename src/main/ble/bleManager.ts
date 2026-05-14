@@ -69,6 +69,15 @@ export class BLEManager extends EventEmitter {
     await device.disconnect()
   }
 
+  async destroy(): Promise<void> {
+    await this.stopScan().catch(() => {})
+    for (const id of this.devices.keys()) {
+      await this.disconnectDevice(id).catch(() => {})
+    }
+    this.devices.clear()
+    this.removeAllListeners()
+  }
+
   private onDiscover(peripheral: unknown): void {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const p = peripheral as any
@@ -78,8 +87,8 @@ export class BLEManager extends EventEmitter {
     const serviceUUIDs: string[] = p.advertisement?.serviceUuids || []
     const profile = detectProfile(serviceUUIDs)
 
-    // Only surface fitness-related devices (filter unknowns during active scan)
-    // Still surface them so user can manually try to connect
+    console.log(`[BLE] discovered: ${name} | profile: ${profile} | services: ${serviceUUIDs.join(', ')}`)
+
     if (!this.devices.has(id)) {
       const device = new TrainerDevice(p)
       this.devices.set(id, device)
