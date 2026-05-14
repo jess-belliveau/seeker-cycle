@@ -7,6 +7,7 @@ import { DevicesScreen } from './screens/DevicesScreen'
 import { CharacterSelectScreen } from './screens/CharacterSelectScreen'
 import { RaceScreen } from './screens/RaceScreen'
 import { ResultsScreen } from './screens/ResultsScreen'
+import { WattsBattleScreen } from './screens/WattsBattleScreen'
 
 function AppRoutes(): React.ReactElement {
   useBLEDeviceSync()
@@ -19,6 +20,7 @@ function AppRoutes(): React.ReactElement {
       <Route path="/character-select" element={<CharacterSelectScreen />} />
       <Route path="/race" element={<RaceScreen />} />
       <Route path="/results" element={<ResultsScreen />} />
+      <Route path="/watts-battle" element={<WattsBattleScreen />} />
       <Route path="*" element={<Navigate to="/splash" replace />} />
     </Routes>
   )

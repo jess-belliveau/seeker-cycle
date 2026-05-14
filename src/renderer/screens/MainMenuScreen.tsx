@@ -19,10 +19,10 @@ interface GameMode {
 }
 
 const GAME_MODES: GameMode[] = [
-  { id: 'race',      label: 'RACE',             description: 'FIRST TO FINISH WINS',  enabled: true  },
-  { id: 'endurance', label: 'ENDURANCE',         description: 'HOLD TARGET POWER',     enabled: false },
-  { id: 'sprint',    label: 'SPRINT',            description: 'MAX EFFORT INTERVALS',  enabled: false },
-  { id: 'team',      label: 'TEAM RELAY',        description: 'TAG-TEAM RACING',       enabled: false },
+  { id: 'race',         label: 'RACE',         description: 'FIRST TO FINISH WINS',  enabled: true  },
+  { id: 'watts-battle', label: 'WATTS BATTLE', description: '30 SEC POWER BATTLE',   enabled: true  },
+  { id: 'endurance',    label: 'ENDURANCE',    description: 'HOLD TARGET POWER',     enabled: false },
+  { id: 'sprint',       label: 'SPRINT',       description: 'MAX EFFORT INTERVALS',  enabled: false },
 ]
 
 function formatTime(ms: number | null): string {
@@ -105,7 +105,7 @@ export function MainMenuScreen(): React.ReactElement {
 
           <div style={styles.modeList}>
             {GAME_MODES.map((mode) => {
-              const needsDevice = mode.id === 'race'
+              const needsDevice = mode.id === 'race' || mode.id === 'watts-battle'
               const hasDevice = connectedDevices.length > 0
               const isClickable = mode.enabled && (!needsDevice || hasDevice)
               return (
@@ -119,7 +119,7 @@ export function MainMenuScreen(): React.ReactElement {
                   }}
                   onClick={() => {
                     if (!isClickable) return
-                    navigate('/character-select')
+                    navigate('/character-select', { state: { destination: `/${mode.id}` } })
                   }}
                   disabled={!mode.enabled}
                 >

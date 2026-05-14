@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useDeviceStore } from '../store/deviceStore'
 import { SlotInitialsInput } from '../components/devices/SlotInitialsInput'
 import { C, pixelBtn, sunsetBg } from '../theme'
@@ -146,6 +146,8 @@ interface Slot {
 
 export function CharacterSelectScreen(): React.ReactElement {
   const navigate = useNavigate()
+  const location = useLocation()
+  const destination = (location.state as { destination?: string } | null)?.destination ?? '/race'
   const { connected, assignAvatar, assignInitials } = useDeviceStore()
 
   const connectedList = Object.values(connected).filter((d) => d.status === 'connected')
@@ -209,7 +211,7 @@ export function CharacterSelectScreen(): React.ReactElement {
       assignInitials(s.deviceId, s.initials)
       if (s.charIdx !== null) assignAvatar(s.deviceId, s.charIdx)
     })
-    navigate('/race')
+    navigate(destination)
   }
 
   const previewChar = CHARACTERS[previewIdx]
