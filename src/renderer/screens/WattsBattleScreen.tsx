@@ -12,7 +12,7 @@ const DURATION_STEP_S = 5
 const COUNTDOWN_S = 3
 const MAX_DISPLAY_WATTS = 500
 
-const PLAYER_COLORS = [
+export const PLAYER_COLORS = [
   '#00e5ff', '#ff4fa3', '#ffee10', '#39ff14',
   '#ff8c00', '#c800ff', '#ff6600', '#ffffff',
 ]
@@ -20,7 +20,7 @@ const PLAYER_COLORS = [
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type BattleStatus = 'setup' | 'countdown' | 'racing' | 'finished'
-type Expression = 'idle' | 'working' | 'maxing'
+export type Expression = 'idle' | 'working' | 'maxing'
 
 interface PlayerState {
   deviceId: string
@@ -38,7 +38,7 @@ function getAvgWatts(p: PlayerState): number {
   return p.readingCount > 0 ? p.totalWatts / p.readingCount : 0
 }
 
-function getExpression(watts: number): Expression {
+export function getExpression(watts: number): Expression {
   if (watts >= 250) return 'maxing'
   if (watts >= 100) return 'working'
   return 'idle'
@@ -46,7 +46,7 @@ function getExpression(watts: number): Expression {
 
 // ─── WarioRider SVG ───────────────────────────────────────────────────────────
 
-function WarioRider({ color, expression, flip, width: w = 192 }: {
+export function WarioRider({ color, expression, flip, width: w = 192 }: {
   color: string
   expression: Expression
   flip?: boolean
@@ -132,7 +132,7 @@ function WarioRider({ color, expression, flip, width: w = 192 }: {
 
 // ─── Power bar ────────────────────────────────────────────────────────────────
 
-function PowerBar({ watts, color }: { watts: number; color: string }): React.ReactElement {
+export function PowerBar({ watts, color }: { watts: number; color: string }): React.ReactElement {
   const segments = 10
   const filled = Math.round(Math.min(1, watts / MAX_DISPLAY_WATTS) * segments)
   return (
