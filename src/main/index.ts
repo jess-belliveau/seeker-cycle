@@ -58,5 +58,13 @@ app.on('before-quit', (event) => {
   event.preventDefault()
   const manager = bleManager
   bleManager = null
-  manager.destroy().finally(() => app.exit(0))
+
+  // Hard fallback — noble cleanup can hang, so force-exit after 2s regardless
+  const bail = setTimeout(() => process.exit(0), 2000)
+  bail.unref()
+
+  manager.destroy().finally(() => {
+    clearTimeout(bail)
+    process.exit(0)
+  })
 })

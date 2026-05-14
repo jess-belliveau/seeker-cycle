@@ -42,12 +42,13 @@ export class BLEManager extends EventEmitter {
 
   async stopScan(): Promise<void> {
     if (!this.noble || !this.scanning) return
-    await new Promise<void>((resolve) => {
-      this.noble.stopScanning(() => {
-        this.scanning = false
-        resolve()
-      })
-    })
+    await Promise.race([
+      new Promise<void>((resolve) => {
+        this.noble.stopScanning(() => { this.scanning = false; resolve() })
+      }),
+      new Promise<void>((resolve) => setTimeout(resolve, 1000)),
+    ])
+    this.scanning = false
   }
 
   async connectDevice(deviceId: string): Promise<void> {
