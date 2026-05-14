@@ -6,6 +6,10 @@ directories:
   output: dist
   buildResources: build
 
+# Explicit icon paths — electron-builder will auto-convert PNG→ICNS/ICO when
+# the platform-native format isn't present.
+icon: build/icon.png
+
 files:
   - out/**/*
   - node_modules/**/*

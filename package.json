@@ -2,6 +2,7 @@
   "name": "seeker-cycle",
   "version": "0.1.0",
   "description": "Multiplayer BLE bike trainer race game",
+  "author": "Brews Brews & Bikes",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",

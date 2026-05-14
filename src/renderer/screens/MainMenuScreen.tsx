@@ -195,7 +195,7 @@ export function MainMenuScreen(): React.ReactElement {
         </div>
         <div style={S.headerMid}>
           <div style={S.ticker}>
-            ★ CALIFORNIA GAMES EDITION ★ PEDAL HARD ★ RIDE FAST ★ &nbsp;★ CALIFORNIA GAMES EDITION ★ PEDAL HARD ★ RIDE FAST ★ &nbsp;
+            ★ BIG BREW EDITION ★ PEDAL HARD ★ RIDE FAST ★ &nbsp;★ BIG BREW EDITION ★ PEDAL HARD ★ RIDE FAST ★ &nbsp;
           </div>
         </div>
         <div style={S.headerRight}>

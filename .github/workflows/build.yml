@@ -46,7 +46,10 @@ jobs:
         env:
           npm_config_arch: ${{ matrix.electron_arch }}
 
-      - name: Build and package
+      - name: Build renderer + main
+        run: npx electron-vite build
+
+      - name: Package with electron-builder
         run: npx electron-builder --${{ matrix.os == 'windows-latest' && 'win' || 'mac' }} --${{ matrix.electron_arch }}
         env:
           # Disable code signing — remove these if you set up a cert

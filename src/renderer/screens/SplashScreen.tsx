@@ -182,7 +182,7 @@ export function SplashScreen(): React.ReactElement {
 
         {/* Edition badge */}
         <div style={styles.edition}>
-          <span style={styles.editionInner}>CALIFORNIA GAMES EDITION</span>
+          <span style={styles.editionInner}>BIG BREW EDITION</span>
         </div>
 
         {/* Press any key */}
