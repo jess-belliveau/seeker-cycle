@@ -1,11 +1,13 @@
 import React, { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useDeviceStore } from '../store/deviceStore'
 import { DeviceCard } from '../components/devices/DeviceCard'
 import { C, pixelBtn, sunsetBg } from '../theme'
 
 export function DevicesScreen(): React.ReactElement {
   const navigate = useNavigate()
+  const location = useLocation()
+  const returnTo = (location.state as { returnTo?: string } | null)?.returnTo ?? null
   const { discovered, connected, isScanning, setScanning } = useDeviceStore()
 
   const connectedList = Object.values(connected).filter((d) => d.status === 'connected')
@@ -67,15 +69,33 @@ export function DevicesScreen(): React.ReactElement {
       <div style={styles.footer}>
         <div style={styles.hint}>
           {connectedList.length > 0
-            ? `${connectedList.length} DEVICE${connectedList.length > 1 ? 'S' : ''} CONNECTED — RETURN TO MENU TO SELECT RACE`
+            ? `${connectedList.length} DEVICE${connectedList.length > 1 ? 'S' : ''} CONNECTED`
             : 'CONNECT A DEVICE TO GET STARTED'}
         </div>
-        <button
-          style={{ ...pixelBtn(C.cyan), ...styles.doneBtn }}
-          onClick={() => navigate('/menu')}
-        >
-          DONE ▶
-        </button>
+        <div style={styles.footerBtns}>
+          <button
+            style={{ ...pixelBtn(C.dim), ...styles.backBtn2 }}
+            onClick={() => navigate('/menu')}
+          >
+            ◀ MENU
+          </button>
+          {connectedList.length > 0 && returnTo && (
+            <button
+              style={{ ...pixelBtn(C.green), ...styles.doneBtn }}
+              onClick={() => navigate('/character-select', { state: { destination: returnTo } })}
+            >
+              PLAY ▶
+            </button>
+          )}
+          {(!returnTo || connectedList.length === 0) && (
+            <button
+              style={{ ...pixelBtn(C.cyan), ...styles.doneBtn }}
+              onClick={() => navigate('/menu')}
+            >
+              DONE ▶
+            </button>
+          )}
+        </div>
       </div>
 
       <style>{scanAnim}</style>
@@ -138,6 +158,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     flexShrink: 0,
   },
-  hint:    { fontSize: 8, color: C.dim },
-  doneBtn: { padding: '12px 28px', fontSize: 9, letterSpacing: 2 },
+  hint:       { fontSize: 8, color: C.dim, flex: 1 },
+  footerBtns: { display: 'flex', gap: 10 },
+  backBtn2:   { padding: '10px 16px', fontSize: 8, letterSpacing: 1 },
+  doneBtn:    { padding: '12px 28px', fontSize: 9, letterSpacing: 2 },
 }

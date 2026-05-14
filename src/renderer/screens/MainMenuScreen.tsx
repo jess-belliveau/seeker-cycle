@@ -1,232 +1,269 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useLeaderboardStore } from '../store/leaderboardStore'
 import { useDeviceStore } from '../store/deviceStore'
 import { useSettingsStore } from '../store/settingsStore'
-import { C, pixelBox, pixelBtn, sunsetBg } from '../theme'
+import { C, pixelBtn, sunsetBg } from '../theme'
+import type { SessionResult } from '../types'
 
-const css2 = `
-@keyframes scanPulse {
-  0%,100% { opacity:1; } 50% { opacity:0.2; }
+// ── Mode config ────────────────────────────────────────────────────────────────
+
+interface ModeConfig {
+  id:              string
+  label:           string
+  description:     string
+  accent:          string
+  lbPrimaryLabel:  string
+  enabled:         boolean
 }
-`
 
-interface GameMode {
-  id: string
-  label: string
-  description: string
-  enabled: boolean
-}
-
-const GAME_MODES: GameMode[] = [
-  { id: 'race',         label: 'RACE',         description: 'FIRST TO FINISH WINS',  enabled: true  },
-  { id: 'watts-battle', label: 'WATTS BATTLE', description: '30 SEC POWER BATTLE',   enabled: true  },
-  { id: 'endurance',    label: 'ENDURANCE',    description: 'HOLD TARGET POWER',     enabled: false },
-  { id: 'sprint',       label: 'SPRINT',       description: 'MAX EFFORT INTERVALS',  enabled: false },
+const MODES: ModeConfig[] = [
+  { id: 'race',         label: 'RACE',         description: 'FIRST TO FINISH WINS', accent: C.orange, lbPrimaryLabel: 'BEST TIME',    enabled: true  },
+  { id: 'watts-battle', label: 'WATTS BATTLE', description: '15s POWER BATTLE',     accent: C.cyan,   lbPrimaryLabel: 'BEST AVG WATTS', enabled: true  },
+  { id: 'endurance',    label: 'ENDURANCE',    description: 'HOLD TARGET POWER',    accent: C.purple, lbPrimaryLabel: '',              enabled: false },
+  { id: 'sprint',       label: 'SPRINT',       description: 'MAX EFFORT INTERVALS', accent: C.pink,   lbPrimaryLabel: '',              enabled: false },
 ]
 
-function formatTime(ms: number | null): string {
-  if (ms === null) return '  -:--.--'
-  const total = Math.floor(ms / 1000)
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  const cs = Math.floor((ms % 1000) / 10)
-  return `${m}:${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`
+// ── Leaderboard building ───────────────────────────────────────────────────────
+
+interface LBEntry {
+  initials:   string
+  primary:    string
+  primaryRaw: number
+  avgWatts:   number
+  races:      number
 }
 
-export function MainMenuScreen(): React.ReactElement {
-  const navigate = useNavigate()
-  const { entries, loading, load } = useLeaderboardStore()
-  const { connected, isScanning } = useDeviceStore()
-  const { adminMode, toggleAdminMode } = useSettingsStore()
-  const connectedDevices = Object.values(connected).filter((d) => d.status === 'connected')
-  const top5 = entries.slice(0, 5)
+function fmtTime(ms: number): string {
+  const m  = Math.floor(ms / 60000)
+  const s  = Math.floor((ms % 60000) / 1000)
+  const cs = Math.floor((ms % 1000) / 10)
+  return `${m}:${String(s).padStart(2, '0')}.${String(cs).padStart(2, '0')}`
+}
 
-  useEffect(() => { load() }, [load])
+function buildRaceLB(sessions: SessionResult[]): LBEntry[] {
+  const map = new Map<string, { bestMs: number; wSum: number; count: number }>()
+  for (const s of sessions) {
+    if (s.config.distanceMeters <= 0) continue
+    for (const r of s.riders) {
+      if (r.finishTimeMs === null) continue
+      const e = map.get(r.initials)
+      if (!e) map.set(r.initials, { bestMs: r.finishTimeMs, wSum: r.avgWatts, count: 1 })
+      else   { e.bestMs = Math.min(e.bestMs, r.finishTimeMs); e.wSum += r.avgWatts; e.count++ }
+    }
+  }
+  return [...map.entries()]
+    .map(([initials, d]) => ({
+      initials, primary: fmtTime(d.bestMs), primaryRaw: d.bestMs,
+      avgWatts: Math.round(d.wSum / d.count), races: d.count,
+    }))
+    .sort((a, b) => a.primaryRaw - b.primaryRaw)
+    .slice(0, 8)
+}
 
+function buildBattleLB(sessions: SessionResult[]): LBEntry[] {
+  const map = new Map<string, { bestW: number; count: number }>()
+  for (const s of sessions) {
+    if (s.config.distanceMeters > 0) continue
+    for (const r of s.riders) {
+      const e = map.get(r.initials)
+      if (!e) map.set(r.initials, { bestW: r.avgWatts, count: 1 })
+      else   { e.bestW = Math.max(e.bestW, r.avgWatts); e.count++ }
+    }
+  }
+  return [...map.entries()]
+    .map(([initials, d]) => ({
+      initials, primary: `${Math.round(d.bestW)}W`, primaryRaw: d.bestW,
+      avgWatts: Math.round(d.bestW), races: d.count,
+    }))
+    .sort((a, b) => b.primaryRaw - a.primaryRaw)
+    .slice(0, 8)
+}
+
+function getEntries(modeId: string, sessions: SessionResult[]): LBEntry[] {
+  if (modeId === 'race')         return buildRaceLB(sessions)
+  if (modeId === 'watts-battle') return buildBattleLB(sessions)
+  return []
+}
+
+// ── Medal helpers ──────────────────────────────────────────────────────────────
+
+const MEDAL_COLORS = ['#ffd700', '#b8c4cc', '#cd7f32']
+function medalColor(i: number): string { return i < 3 ? MEDAL_COLORS[i] : C.muted }
+
+// ── Leaderboard panel ─────────────────────────────────────────────────────────
+
+function LeaderboardPanel({ mode, entries, loading }: {
+  mode:    ModeConfig
+  entries: LBEntry[]
+  loading: boolean
+}): React.ReactElement {
   return (
-    <div style={{ ...styles.container, ...sunsetBg }}>
-      {/* Header bar */}
-      <div style={styles.header}>
-        <div style={styles.logo}>
-          <span style={styles.logoSeeker}>SEEKER</span>
-          <span style={styles.logoCycle}>CYCLE</span>
-        </div>
-        <div style={styles.headerRight}>
-          <div style={styles.ticker}>
-            ★ CALIFORNIA GAMES EDITION ★ PEDAL HARD ★ RIDE FAST ★ &nbsp;
-          </div>
-        </div>
-        <div style={styles.headerBtns}>
-          <button
-            style={{ ...pixelBtn(C.purple), ...styles.quitBtn }}
-            onClick={() => navigate('/splash')}
-          >
-            ◀ INTRO
-          </button>
-          <button
-            style={{ ...pixelBtn(C.pink), ...styles.quitBtn }}
-            onClick={() => window.api.app.quit()}
-          >
-            ■ QUIT
-          </button>
-        </div>
+    <div style={{ ...S.lbPanel, borderColor: mode.accent }}>
+      <div style={{ ...S.lbHead, borderBottomColor: mode.accent + '50' }}>
+        <span style={{ ...S.lbTitle, color: mode.accent }}>{mode.label}</span>
+        <span style={S.lbSubtitle}>{mode.lbPrimaryLabel}</span>
       </div>
 
-      {/* Body */}
-      <div style={styles.body}>
-
-        {/* Left — game modes */}
-        <div style={styles.leftPanel}>
-
-          {/* Connect Devices status card */}
-          <button
-            style={styles.devicesCard}
-            onClick={() => navigate('/devices')}
-          >
-            <div style={styles.devicesCardTop}>
-              <span style={styles.devicesCardLabel}>CONNECT DEVICES</span>
-              {isScanning && (
-                <span style={styles.scanDot} />
-              )}
-            </div>
-            {connectedDevices.length > 0 ? (
-              <span style={{ ...styles.devicesCardStatus, color: C.green }}>
-                ■ {connectedDevices.length} CONNECTED
-              </span>
-            ) : (
-              <span style={{ ...styles.devicesCardStatus, color: C.muted }}>
-                ○ NO DEVICES
-              </span>
-            )}
-          </button>
-
-          <div style={styles.sectionLabel}>▶ SELECT MODE</div>
-
-          <div style={styles.modeList}>
-            {GAME_MODES.map((mode) => {
-              const needsDevice = mode.id === 'race' || mode.id === 'watts-battle'
-              const hasDevice = connectedDevices.length > 0
-              const isClickable = mode.enabled && (!needsDevice || hasDevice)
-              return (
-                <button
-                  key={mode.id}
-                  style={{
-                    ...styles.modeBtn,
-                    ...(mode.enabled
-                      ? (needsDevice && !hasDevice ? styles.modeBtnNeedsDevice : styles.modeBtnOn)
-                      : styles.modeBtnOff),
-                  }}
-                  onClick={() => {
-                    if (!isClickable) return
-                    navigate('/character-select', { state: { destination: `/${mode.id}` } })
-                  }}
-                  disabled={!mode.enabled}
-                >
-                  <span style={styles.modeBtnLabel}>{mode.label}</span>
-                  <span style={styles.modeBtnDesc}>{mode.description}</span>
-                  {!mode.enabled && <span style={styles.comingSoon}>LOCKED</span>}
-                  {mode.enabled && needsDevice && !hasDevice && (
-                    <span style={styles.comingSoon}>CONNECT DEVICES FIRST</span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-
-          <button
-            style={{ ...styles.adminToggle, ...(adminMode ? styles.adminToggleOn : {}) }}
-            onClick={toggleAdminMode}
-          >
-            <span style={styles.adminDot} />
-            ADMIN MODE {adminMode ? 'ON' : 'OFF'}
-          </button>
-        </div>
-
-        {/* Right — leaderboard + live debug */}
-        <div style={styles.rightPanel}>
-          <div style={{ ...pixelBox(C.amber), ...styles.lbBox }}>
-            <div style={styles.lbTitle}>🏆 HIGH SCORES</div>
-
-            {loading && <div style={styles.lbEmpty}>LOADING...</div>}
-
-            {!loading && top5.length === 0 && (
-              <div style={styles.lbEmpty}>
-                NO RECORDS YET{'\n'}RACE TO SET ONE!
+      {loading ? (
+        <div style={S.lbEmpty}>LOADING...</div>
+      ) : entries.length === 0 ? (
+        <div style={S.lbEmpty}>{'NO RECORDS YET\nPLAY TO SET ONE!'}</div>
+      ) : (
+        <div style={S.lbList}>
+          {entries.map((entry, i) => (
+            <div
+              key={entry.initials}
+              style={{ ...S.lbRow, background: i === 0 ? `${mode.accent}18` : 'transparent' }}
+            >
+              <div style={S.lbRankWrap}>
+                <span style={{ ...S.lbRank, color: medalColor(i) }}>{i + 1}</span>
               </div>
-            )}
-
-            {!loading && top5.length > 0 && (
-              <div style={styles.lbList}>
-                {top5.map((entry, i) => (
-                  <div key={entry.initials} style={{
-                    ...styles.lbRow,
-                    background: i === 0 ? 'rgba(255,238,16,0.12)' : 'transparent'
-                  }}>
-                    <span style={{
-                      ...styles.lbRank,
-                      color: i === 0 ? C.yellow : i === 1 ? C.dim : i === 2 ? C.amber : C.muted
-                    }}>
-                      {i + 1}.
-                    </span>
-                    <span style={styles.lbInitials}>{entry.initials}</span>
-                    <div style={styles.lbScoreCol}>
-                      <span style={styles.lbTime}>{formatTime(entry.bestFinishTimeMs)}</span>
-                      <span style={styles.lbMeta}>
-                        {entry.totalRaces}x · {Math.round(entry.avgWatts)}W
-                      </span>
-                    </div>
-                  </div>
-                ))}
+              <span style={{ ...S.lbInitials, color: i < 3 ? medalColor(i) : C.white }}>
+                {entry.initials}
+              </span>
+              <span style={{ ...S.lbPrimary, color: i < 3 ? medalColor(i) : C.dim }}>
+                {entry.primary}
+              </span>
+              <div style={S.lbMeta}>
+                {mode.id === 'race' && (
+                  <span style={S.lbMetaLine}>{entry.avgWatts}W avg</span>
+                )}
+                <span style={{ ...S.lbMetaLine, color: C.muted }}>×{entry.races}</span>
               </div>
-            )}
-          </div>
-
-          {/* Live device debug panel */}
-          {connectedDevices.length > 0 && (
-            <div style={{ ...pixelBox(C.green), ...styles.debugBox }}>
-              <div style={{ ...styles.lbTitle, color: C.green }}>◉ LIVE DEVICES</div>
-              {connectedDevices.map((d) => (
-                <DeviceDebugRow
-                  key={d.id}
-                  deviceId={d.id}
-                  name={d.name}
-                  onDisconnect={() => window.api.ble.disconnect(d.id).catch(console.error)}
-                />
-              ))}
             </div>
-          )}
+          ))}
         </div>
-      </div>
-
-      <style>{css}</style>
-      <style>{css2}</style>
+      )}
     </div>
   )
 }
 
-function DeviceDebugRow({
-  deviceId, name, onDisconnect
-}: {
-  deviceId: string
-  name: string
-  onDisconnect: () => void
-}): React.ReactElement {
+// ── Live device chip ───────────────────────────────────────────────────────────
+
+function DeviceLiveChip({ deviceId, name }: { deviceId: string; name: string }): React.ReactElement {
   const reading = useDeviceStore((s) => s.liveReadings[deviceId])
-  const w = reading ? Math.round(reading.watts) : 0
-  const rpm = reading ? Math.round(reading.rpm) : 0
+  const w   = reading ? Math.round(reading.watts) : 0
+  const rpm = reading ? Math.round(reading.rpm)   : 0
+  return (
+    <div style={S.liveChip}>
+      <span style={S.liveChipName}>{name.slice(0, 14)}</span>
+      <span style={{ ...S.liveChipVal, color: C.cyan }}>{w}W</span>
+      <span style={{ ...S.liveChipVal, color: C.pink }}>{rpm}rpm</span>
+    </div>
+  )
+}
+
+// ── Main screen ───────────────────────────────────────────────────────────────
+
+export function MainMenuScreen(): React.ReactElement {
+  const navigate = useNavigate()
+  const { connected, isScanning } = useDeviceStore()
+  const { adminMode, toggleAdminMode } = useSettingsStore()
+
+  const connectedList = Object.values(connected).filter((d) => d.status === 'connected')
+  const hasDevice     = connectedList.length > 0
+
+  const [sessions, setSessions] = useState<SessionResult[]>([])
+  const [loading, setLoading]   = useState(true)
+
+  useEffect(() => {
+    window.api.data.loadSessions()
+      .then(setSessions)
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  function handleModeClick(mode: ModeConfig): void {
+    if (!mode.enabled) return
+    if (hasDevice) {
+      navigate('/character-select', { state: { destination: `/${mode.id}` } })
+    } else {
+      navigate('/devices', { state: { returnTo: `/${mode.id}` } })
+    }
+  }
+
+  const enabledModes = MODES.filter((m) => m.enabled)
 
   return (
-    <div style={styles.debugRow}>
-      <span style={styles.debugName}>{name.slice(0, 14)}</span>
-      <span style={{ ...styles.debugVal, color: C.cyan }}>{String(w).padStart(3,'0')}W</span>
-      <span style={{ ...styles.debugVal, color: C.pink }}>{String(rpm).padStart(3,'0')}rpm</span>
-      <button
-        style={{ ...pixelBtn(C.muted), ...styles.disconnectBtn }}
-        onClick={onDisconnect}
-      >
-        ✕
-      </button>
+    <div style={{ ...S.container, ...sunsetBg }}>
+
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div style={S.header}>
+        <div style={S.logo}>
+          <span style={S.logoSeeker}>SEEKER</span>
+          <span style={S.logoCycle}>CYCLE</span>
+        </div>
+        <div style={S.headerMid}>
+          <div style={S.ticker}>
+            ★ CALIFORNIA GAMES EDITION ★ PEDAL HARD ★ RIDE FAST ★ &nbsp;★ CALIFORNIA GAMES EDITION ★ PEDAL HARD ★ RIDE FAST ★ &nbsp;
+          </div>
+        </div>
+        <div style={S.headerRight}>
+          <button style={S.devicesChip} onClick={() => navigate('/devices')}>
+            {hasDevice
+              ? <><span style={{ color: C.green }}>■</span>{' '}{connectedList.length} CONNECTED</>
+              : <><span style={{ color: C.muted }}>○</span>{' '}CONNECT DEVICES</>
+            }
+            {isScanning && <span style={S.scanBlink} />}
+          </button>
+          <button style={{ ...pixelBtn(C.purple), ...S.headerBtn }} onClick={() => navigate('/splash')}>◀ INTRO</button>
+          <button style={{ ...pixelBtn(C.pink),   ...S.headerBtn }} onClick={() => window.api.app.quit()}>■ QUIT</button>
+        </div>
+      </div>
+
+      {/* ── Body: leaderboard columns ──────────────────────────────────────── */}
+      <div style={S.body}>
+        {enabledModes.map((mode) => (
+          <LeaderboardPanel
+            key={mode.id}
+            mode={mode}
+            entries={getEntries(mode.id, sessions)}
+            loading={loading}
+          />
+        ))}
+      </div>
+
+      {/* ── Status strip ─────────────────────────────────────────────────── */}
+      <div style={S.liveStrip}>
+        {hasDevice ? (
+          <>
+            <span style={S.liveLabel}>◉ LIVE</span>
+            {connectedList.map((d) => <DeviceLiveChip key={d.id} deviceId={d.id} name={d.name} />)}
+          </>
+        ) : (
+          <span style={S.stripHint}>▼ SELECT A MODE BELOW TO START</span>
+        )}
+        <button
+          style={{ ...S.adminBtn, ...(adminMode ? S.adminBtnOn : {}) }}
+          onClick={toggleAdminMode}
+        >
+          ◈ ADMIN {adminMode ? 'ON' : 'OFF'}
+        </button>
+      </div>
+
+      {/* ── Mode bar ───────────────────────────────────────────────────────── */}
+      <div style={S.modeBar}>
+        {MODES.map((mode, i) => (
+          <button
+            key={mode.id}
+            style={{
+              ...S.modeBtn,
+              borderRight: i < MODES.length - 1 ? `2px solid ${C.borderDim}` : 'none',
+              ...(mode.enabled ? S.modeBtnOn : S.modeBtnOff),
+              boxShadow: mode.enabled ? `inset 0 -5px 0 ${mode.accent}` : undefined,
+            }}
+            onClick={() => handleModeClick(mode)}
+          >
+            <span style={{ ...S.modeBtnLabel, color: mode.enabled ? mode.accent : C.muted }}>
+              {mode.label}
+            </span>
+            <span style={S.modeBtnDesc}>{mode.description}</span>
+            {!mode.enabled && <span style={S.lockTag}>LOCKED</span>}
+          </button>
+        ))}
+      </div>
+
+      <style>{css}</style>
     </div>
   )
 }
@@ -236,190 +273,165 @@ const css = `
   0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
+@keyframes scanBlink {
+  0%,49% { opacity: 1; } 50%,100% { opacity: 0; }
+}
 `
 
-const styles: Record<string, React.CSSProperties> = {
+const S: Record<string, React.CSSProperties> = {
   container: {
     width: '100%', height: '100%',
     display: 'flex', flexDirection: 'column',
     overflow: 'hidden',
-  },
-  header: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '0 24px',
-    height: 56,
-    background: '#000',
-    borderBottom: `4px solid ${C.orange}`,
-    boxShadow: `0 4px 0 ${C.black}`,
-    flexShrink: 0,
-  },
-  logo: { display: 'flex', alignItems: 'baseline', gap: 12 },
-  logoSeeker: {
-    fontSize: 20, color: C.yellow,
-    textShadow: `2px 2px 0 ${C.black}`,
-    letterSpacing: 4,
-  },
-  logoCycle: {
-    fontSize: 12, color: C.orange,
-    textShadow: `2px 2px 0 ${C.black}`,
-    letterSpacing: 6,
-  },
-  headerRight: {
-    flex: 1, overflow: 'hidden', marginLeft: 24,
-    height: '100%', display: 'flex', alignItems: 'center',
-  },
-  ticker: {
-    fontSize: 8, color: C.pink,
-    textShadow: `1px 1px 0 ${C.black}`,
-    whiteSpace: 'nowrap',
-    animation: 'tickerScroll 12s linear infinite',
-  },
-  body: {
-    flex: 1, display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: 0,
-    overflow: 'hidden',
-    padding: 24, gap2: 24,
-  } as React.CSSProperties,
-  leftPanel: {
-    paddingRight: 16,
-    display: 'flex', flexDirection: 'column', gap: 12,
-    borderRight: `3px solid ${C.borderDim}`,
-  },
-  rightPanel: {
-    paddingLeft: 16,
-    display: 'flex', flexDirection: 'column', gap: 16,
-    overflowY: 'auto',
-  },
-  sectionLabel: {
-    fontSize: 8, color: C.orange, letterSpacing: 2,
-    marginBottom: 4,
-    textShadow: `1px 1px 0 ${C.black}`,
-  },
-  modeList: { display: 'flex', flexDirection: 'column', gap: 8, flex: 1 },
-  modeBtn: {
-    display: 'flex', flexDirection: 'column', gap: 6,
-    padding: '14px 16px',
-    textAlign: 'left', cursor: 'pointer',
-    position: 'relative',
-  },
-  modeBtnOn: {
-    background: C.bgMid,
-    border: `3px solid ${C.orange}`,
-    boxShadow: `4px 4px 0 ${C.black}`,
-    color: C.white,
-  },
-  modeBtnOff: {
-    background: '#0d0221',
-    border: `3px solid ${C.muted}`,
-    boxShadow: `4px 4px 0 ${C.black}`,
-    color: C.muted,
-    opacity: 0.6,
-    cursor: 'default',
-  },
-  modeBtnNeedsDevice: {
-    background: '#0d0221',
-    border: `3px solid ${C.borderDim}`,
-    boxShadow: `4px 4px 0 ${C.black}`,
-    color: C.dim,
-    opacity: 0.7,
-    cursor: 'default',
-  },
-  modeBtnLabel: { fontSize: 11, letterSpacing: 2 },
-  modeBtnDesc:  { fontSize: 7,  color: C.dim, letterSpacing: 1 },
-  comingSoon: {
-    position: 'absolute', top: 8, right: 10,
-    fontSize: 6, color: C.purple, letterSpacing: 1,
-    border: `2px solid ${C.purple}`, padding: '2px 4px',
-  },
-  devicesCard: {
-    display: 'flex', flexDirection: 'column', gap: 6,
-    padding: '12px 14px',
-    background: C.bgDark,
-    border: `3px solid ${C.cyan}`,
-    boxShadow: `4px 4px 0 ${C.black}`,
-    cursor: 'pointer',
-    textAlign: 'left' as const,
     fontFamily: "'Press Start 2P', monospace",
   },
-  devicesCardTop: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+
+  // ── Header ──
+  header: {
+    display: 'flex', alignItems: 'center',
+    padding: '0 20px',
+    height: 52, flexShrink: 0,
+    background: '#000',
+    borderBottom: `4px solid ${C.orange}`,
+    gap: 16,
   },
-  devicesCardLabel: {
-    fontSize: 8, color: C.cyan, letterSpacing: 2,
+  logo:      { display: 'flex', alignItems: 'baseline', gap: 10, flexShrink: 0 },
+  logoSeeker:{ fontSize: 18, color: C.yellow, textShadow: `2px 2px 0 #000`, letterSpacing: 4 },
+  logoCycle: { fontSize: 10, color: C.orange, textShadow: `2px 2px 0 #000`, letterSpacing: 6 },
+  headerMid: { flex: 1, overflow: 'hidden' },
+  ticker: {
+    fontSize: 7, color: C.pink,
+    textShadow: `1px 1px 0 #000`,
+    whiteSpace: 'nowrap',
+    animation: 'tickerScroll 18s linear infinite',
   },
-  devicesCardStatus: {
+  headerRight: { display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 },
+  devicesChip: {
+    display: 'flex', alignItems: 'center', gap: 6,
+    padding: '5px 12px',
+    background: 'transparent',
+    border: `2px solid ${C.cyan}`,
+    color: C.cyan,
     fontSize: 7, letterSpacing: 1,
+    fontFamily: "'Press Start 2P', monospace",
+    cursor: 'pointer',
+    boxShadow: `2px 2px 0 #000`,
   },
-  scanDot: {
-    display: 'inline-block', width: 8, height: 8,
+  scanBlink: {
+    display: 'inline-block', width: 7, height: 7,
     background: C.cyan,
-    animation: 'scanPulse 1s step-end infinite',
+    animation: 'scanBlink 1s step-end infinite',
+    marginLeft: 4,
   },
-  devicesBtn: {
-    padding: '14px 16px',
-    fontSize: 9, letterSpacing: 2,
-    textAlign: 'left',
+  headerBtn: { padding: '6px 12px', fontSize: 7, letterSpacing: 1 },
+
+  // ── Body ──
+  body: {
+    flex: 1,
+    display: 'flex', flexDirection: 'row',
+    gap: 16, padding: '16px 20px',
+    overflow: 'hidden', minHeight: 0,
   },
-  lbBox: { padding: 16, display: 'flex', flexDirection: 'column', gap: 12 },
-  lbTitle: {
-    fontSize: 9, color: C.amber, letterSpacing: 2,
-    textShadow: `2px 2px 0 ${C.black}`,
-    borderBottom: `2px solid ${C.borderDim}`,
-    paddingBottom: 8, marginBottom: 4,
+
+  // ── Leaderboard panel ──
+  lbPanel: {
+    flex: 1,
+    display: 'flex', flexDirection: 'column',
+    background: 'rgba(0,0,0,0.68)',
+    border: '3px solid',
+    boxShadow: `5px 5px 0 #000`,
+    overflow: 'hidden',
   },
+  lbHead: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '10px 16px', flexShrink: 0,
+    borderBottom: '2px solid',
+  },
+  lbTitle:   { fontSize: 12, letterSpacing: 3, textShadow: `2px 2px 0 #000` },
+  lbSubtitle:{ fontSize: 6, color: C.dim, letterSpacing: 2 },
+
+  lbList: { display: 'flex', flexDirection: 'column', overflowY: 'auto', flex: 1 },
   lbEmpty: {
-    fontSize: 8, color: C.muted, textAlign: 'center',
-    padding: '16px 0', lineHeight: 2, whiteSpace: 'pre',
+    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 7, color: C.muted,
+    textAlign: 'center', lineHeight: 2.5, whiteSpace: 'pre',
   },
-  lbList: { display: 'flex', flexDirection: 'column', gap: 2 },
   lbRow: {
-    display: 'flex', alignItems: 'center', gap: 10,
-    padding: '8px 6px',
+    display: 'flex', alignItems: 'center',
+    padding: '11px 16px', gap: 12,
+    borderBottom: `1px solid ${C.borderDim}`,
   },
-  lbRank: { fontSize: 10, width: 20, textAlign: 'right', flexShrink: 0 },
-  lbInitials: {
-    fontSize: 12, color: C.white, letterSpacing: 3,
-    width: 52, flexShrink: 0,
-    textShadow: `2px 2px 0 ${C.black}`,
+  lbRankWrap: {
+    width: 22, flexShrink: 0,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
-  lbScoreCol: { flex: 1, display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'flex-end' },
-  lbTime: {
-    fontSize: 11, color: C.cyan,
+  lbRank:    { fontSize: 10, fontVariantNumeric: 'tabular-nums' },
+  lbInitials:{
+    fontSize: 15, letterSpacing: 3,
+    width: 56, flexShrink: 0,
+    textShadow: `2px 2px 0 #000`,
+  },
+  lbPrimary: {
+    flex: 1, fontSize: 18,
     fontVariantNumeric: 'tabular-nums',
-    textShadow: `1px 1px 0 ${C.black}`,
+    textShadow: `2px 2px 0 #000`,
   },
-  lbMeta: { fontSize: 6, color: C.muted },
-  debugBox: { padding: 12, display: 'flex', flexDirection: 'column', gap: 8 },
-  debugRow: {
-    display: 'flex', alignItems: 'center', gap: 10,
-    borderBottom: `2px solid ${C.borderDim}`, paddingBottom: 6,
+  lbMeta:    { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 },
+  lbMetaLine:{ fontSize: 7, color: C.dim, letterSpacing: 1 },
+
+  // ── Status strip ──
+  liveStrip: {
+    display: 'flex', alignItems: 'center',
+    gap: 14, padding: '0 20px',
+    height: 42, flexShrink: 0,
+    background: 'rgba(0,0,0,0.60)',
+    borderTop: `2px solid ${C.borderDim}`,
   },
-  debugName: { fontSize: 7, color: C.dim, flex: 1 },
-  debugVal: { fontSize: 11, textShadow: `1px 1px 0 ${C.black}` },
-  disconnectBtn: { padding: '4px 8px', fontSize: 8 },
-
-  headerBtns: { display: 'flex', gap: 8, flexShrink: 0 },
-  quitBtn: { padding: '8px 14px', fontSize: 8, letterSpacing: 1 },
-
-  adminToggle: {
+  liveLabel: { fontSize: 7, color: C.green, letterSpacing: 2, flexShrink: 0 },
+  liveChip: {
     display: 'flex', alignItems: 'center', gap: 8,
-    padding: '8px 12px',
+    padding: '4px 10px',
+    background: 'rgba(0,0,0,0.4)',
+    border: `2px solid ${C.borderDim}`,
+  },
+  liveChipName: { fontSize: 6, color: C.dim },
+  liveChipVal:  { fontSize: 9, textShadow: `1px 1px 0 #000`, fontVariantNumeric: 'tabular-nums' },
+  stripHint: { fontSize: 7, color: C.dim, letterSpacing: 2 },
+  adminBtn: {
+    marginLeft: 'auto',
+    padding: '5px 10px',
     background: 'transparent',
     border: `2px solid ${C.muted}`,
-    boxShadow: `3px 3px 0 ${C.black}`,
     color: C.muted,
-    fontSize: 7, letterSpacing: 2,
+    fontSize: 6, letterSpacing: 1,
+    fontFamily: "'Press Start 2P', monospace",
     cursor: 'pointer',
-    textAlign: 'left' as const,
   },
-  adminToggleOn: {
-    border: `2px solid ${C.green}`,
-    color: C.green,
+  adminBtnOn: { border: `2px solid ${C.green}`, color: C.green },
+
+  // ── Mode bar ──
+  modeBar: {
+    display: 'flex',
+    height: 76, flexShrink: 0,
+    background: '#000',
+    borderTop: `4px solid ${C.orange}`,
   },
-  adminDot: {
-    display: 'inline-block', width: 8, height: 8,
-    background: 'currentColor',
-    flexShrink: 0,
+  modeBtn: {
+    flex: 1,
+    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+    gap: 7, padding: '0 12px',
+    border: 'none',
+    fontFamily: "'Press Start 2P', monospace",
+    position: 'relative',
+    cursor: 'pointer',
+  },
+  modeBtnOn:  { background: 'rgba(255,255,255,0.03)' },
+  modeBtnOff: { background: 'transparent', cursor: 'default', opacity: 0.40 },
+  modeBtnLabel: { fontSize: 11, letterSpacing: 2, textShadow: `2px 2px 0 #000` },
+  modeBtnDesc:  { fontSize: 6, color: C.dim, letterSpacing: 1 },
+  lockTag: {
+    position: 'absolute', top: 6, right: 10,
+    fontSize: 5, color: C.purple, letterSpacing: 1,
+    border: `2px solid ${C.purple}`, padding: '2px 4px',
   },
 }
