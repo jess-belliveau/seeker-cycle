@@ -1,9 +1,10 @@
 import React from 'react'
 import type { RaceState } from '../../types'
 import { RiderAvatar } from './RiderAvatar'
+import { C } from '../../theme'
 
 const PX_PER_METER = 3.2
-const LEADER_X = 0.35 // leader sits at 35% of screen width
+const LEADER_X     = 0.35
 
 interface Props {
   race: RaceState
@@ -11,132 +12,171 @@ interface Props {
 }
 
 export function RaceTrack({ race, windowWidth }: Props): React.ReactElement {
-  const riders = Object.values(race.riders)
-  const leaderPos = riders.reduce((max, r) => Math.max(max, r.positionMeters), 0)
-  const leaderScreenX = windowWidth * LEADER_X
-
-  const trackOffset = leaderPos * PX_PER_METER
-  const finishLineX = leaderScreenX + (race.config.distanceMeters - leaderPos) * PX_PER_METER
+  const riders      = Object.values(race.riders)
+  const leaderPos   = riders.reduce((max, r) => Math.max(max, r.positionMeters), 0)
+  const leaderX     = windowWidth * LEADER_X
+  const trackOffset = (leaderPos * PX_PER_METER) % 128
+  const finishX     = leaderX + (race.config.distanceMeters - leaderPos) * PX_PER_METER
 
   return (
     <div style={styles.track}>
-      {/* Scrolling road */}
-      <div
-        style={{
-          ...styles.road,
-          backgroundPositionX: `-${trackOffset % 120}px`
-        }}
-      />
+      {/* Sky gradient */}
+      <div style={styles.sky} />
 
-      {/* Ground line */}
-      <div style={styles.groundLine} />
+      {/* Pixel sun */}
+      <div style={styles.sun} />
+
+      {/* Pixel mountains (static) */}
+      <svg style={styles.mountains} viewBox="0 0 1920 160" preserveAspectRatio="none">
+        <polygon points="0,160 280,40 560,160"   fill="#3d1c5e" />
+        <polygon points="300,160 600,20 900,160"  fill="#2d1448" />
+        <polygon points="700,160 1000,60 1300,160" fill="#3d1c5e" />
+        <polygon points="1100,160 1400,30 1700,160" fill="#1a0a2e" />
+        <polygon points="1500,160 1720,70 1920,160" fill="#2d1448" />
+      </svg>
+
+      {/* Scrolling road — pixel stripe pattern */}
+      <div style={styles.roadWrap}>
+        <div style={{
+          ...styles.road,
+          backgroundPositionX: `-${trackOffset}px`,
+        }} />
+      </div>
+
+      {/* Road centre dashes */}
+      <div style={{
+        ...styles.centreDashes,
+        backgroundPositionX: `-${trackOffset}px`,
+      }} />
+
+      {/* Ground */}
+      <div style={styles.ground} />
 
       {/* Distance markers */}
       {[250, 500, 750, 1000, 1250, 1500, 1750].map((m) => {
-        const markerX = leaderScreenX + (m - leaderPos) * PX_PER_METER
-        if (markerX < -100 || markerX > windowWidth + 100) return null
+        const mx = leaderX + (m - leaderPos) * PX_PER_METER
+        if (mx < -60 || mx > windowWidth + 60) return null
         return (
-          <div key={m} style={{ ...styles.distanceMarker, left: markerX }}>
-            <div style={styles.markerLine} />
-            <span style={styles.markerLabel}>{m}m</span>
+          <div key={m} style={{ ...styles.marker, left: mx }}>
+            <div style={styles.markerPole} />
+            <div style={styles.markerFlag}>{m}M</div>
           </div>
         )
       })}
 
       {/* Finish line */}
-      {finishLineX < windowWidth + 200 && (
-        <div style={{ ...styles.finishLine, left: finishLineX }}>
-          <div style={styles.finishLineBar} />
-          <span style={styles.finishLabel}>FINISH</span>
+      {finishX < windowWidth + 300 && (
+        <div style={{ ...styles.finish, left: finishX }}>
+          <div style={styles.finishPole} />
+          <div style={styles.finishFlag}>FINISH!</div>
+          <div style={styles.finishChecker} />
         </div>
       )}
 
       {/* Riders */}
-      {riders.map((rider) => {
-        const riderX = leaderScreenX + (rider.positionMeters - leaderPos) * PX_PER_METER
-        return (
-          <RiderAvatar
-            key={rider.deviceId}
-            rider={rider}
-            xPx={riderX}
-            isLeader={rider.positionMeters === leaderPos}
-            finishDistanceM={race.config.distanceMeters}
-          />
-        )
-      })}
+      {riders.map((rider) => (
+        <RiderAvatar
+          key={rider.deviceId}
+          rider={rider}
+          xPx={leaderX + (rider.positionMeters - leaderPos) * PX_PER_METER}
+          isLeader={rider.positionMeters === leaderPos}
+          finishDistanceM={race.config.distanceMeters}
+        />
+      ))}
     </div>
   )
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  track: {
-    position: 'absolute',
-    inset: 0,
-    overflow: 'hidden'
+  track: { position: 'absolute', inset: 0, overflow: 'hidden' },
+
+  sky: {
+    position: 'absolute', left: 0, right: 0, top: 0, bottom: 200,
+    background: `linear-gradient(180deg,
+      #0d0221 0%, #1a0a2e 30%, #3d1c5e 55%,
+      #7b2d4e 70%, #c45c35 85%, #ff8c20 95%, #ffcc44 100%)`,
+  },
+
+  sun: {
+    position: 'absolute', right: '15%', top: '8%',
+    width: 64, height: 64,
+    background: C.yellow,
+    boxShadow: `0 0 0 8px ${C.amber}, 0 0 0 16px rgba(255,170,0,0.3)`,
+  },
+
+  mountains: {
+    position: 'absolute', left: 0, right: 0, bottom: 200, height: 160,
+    pointerEvents: 'none',
+  },
+
+  roadWrap: {
+    position: 'absolute', left: 0, right: 0, bottom: 80, height: 140, overflow: 'hidden',
   },
   road: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 80,
-    height: 120,
+    width: '100%', height: '100%',
     background: `repeating-linear-gradient(
       90deg,
-      rgba(255,255,255,0.03) 0px,
-      rgba(255,255,255,0.03) 60px,
-      transparent 60px,
-      transparent 120px
-    ), #1a1a2e`
+      #2a1a0a 0px, #2a1a0a 64px,
+      #1e1206 64px, #1e1206 128px
+    )`,
   },
-  groundLine: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 140,
-    height: 2,
-    background: 'rgba(255,255,255,0.15)'
+
+  centreDashes: {
+    position: 'absolute', left: 0, right: 0, bottom: 148, height: 8,
+    background: `repeating-linear-gradient(
+      90deg,
+      ${C.yellow} 0px, ${C.yellow} 40px,
+      transparent 40px, transparent 80px
+    )`,
   },
-  distanceMarker: {
-    position: 'absolute',
-    bottom: 140,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    transform: 'translateX(-50%)'
-  },
-  markerLine: {
-    width: 1,
-    height: 12,
-    background: 'rgba(255,255,255,0.2)'
-  },
-  markerLabel: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.25)',
-    marginTop: 4,
-    letterSpacing: 1
-  },
-  finishLine: {
-    position: 'absolute',
-    bottom: 80,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    transform: 'translateX(-50%)'
-  },
-  finishLineBar: {
-    width: 4,
-    height: 200,
+
+  ground: {
+    position: 'absolute', left: 0, right: 0, bottom: 0, height: 80,
     background: `repeating-linear-gradient(
       180deg,
-      #ffffff 0px, #ffffff 10px,
-      #000000 10px, #000000 20px
-    )`
+      #3a6b00 0px, #3a6b00 8px,
+      #2d5200 8px, #2d5200 16px
+    )`,
+    borderTop: `4px solid #5a9900`,
   },
-  finishLabel: {
-    fontSize: 12,
-    color: '#ffffff',
-    fontWeight: 900,
-    letterSpacing: 4,
-    marginTop: 8
-  }
+
+  marker: {
+    position: 'absolute', bottom: 200,
+    display: 'flex', flexDirection: 'column', alignItems: 'center',
+    transform: 'translateX(-50%)',
+    pointerEvents: 'none',
+  },
+  markerPole: { width: 4, height: 32, background: C.white },
+  markerFlag: {
+    background: C.orange, color: C.black,
+    fontSize: 6, padding: '2px 4px',
+    fontFamily: "'Press Start 2P', monospace",
+    boxShadow: `2px 2px 0 ${C.black}`,
+    whiteSpace: 'nowrap',
+  },
+
+  finish: {
+    position: 'absolute', bottom: 80,
+    display: 'flex', flexDirection: 'column', alignItems: 'center',
+    transform: 'translateX(-50%)',
+    pointerEvents: 'none',
+  },
+  finishPole: { width: 8, height: 240, background: C.white, boxShadow: `3px 0 0 ${C.black}` },
+  finishFlag: {
+    position: 'absolute', top: -4, left: 8,
+    background: C.pink, color: C.black,
+    fontSize: 10, padding: '4px 10px',
+    fontFamily: "'Press Start 2P', monospace",
+    boxShadow: `3px 3px 0 ${C.black}`,
+    whiteSpace: 'nowrap',
+    animation: 'blink 0.4s step-end infinite',
+  },
+  finishChecker: {
+    position: 'absolute', bottom: 0, left: 0,
+    width: 8, height: 240,
+    background: `repeating-linear-gradient(
+      180deg,
+      #fff 0px,#fff 16px,#000 16px,#000 32px
+    )`,
+  },
 }

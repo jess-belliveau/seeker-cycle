@@ -4,14 +4,47 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Seeker Cycle</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
     <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
+      * { margin: 0; padding: 0; box-sizing: border-box; image-rendering: pixelated; }
       html, body, #root { width: 100%; height: 100%; overflow: hidden; }
       body {
-        background: #0a0a0f;
-        color: #e0e0e0;
-        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        background: #1a0a2e;
+        color: #f0e8d0;
+        font-family: 'Press Start 2P', monospace;
         user-select: none;
+        cursor: default;
+      }
+      /* CRT scanline overlay */
+      body::after {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background: repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 2px,
+          rgba(0,0,0,0.08) 2px,
+          rgba(0,0,0,0.08) 4px
+        );
+        pointer-events: none;
+        z-index: 9999;
+      }
+      button { font-family: 'Press Start 2P', monospace; cursor: pointer; }
+      input  { font-family: 'Press Start 2P', monospace; }
+      /* Pixel button active press effect */
+      button:active:not(:disabled) {
+        transform: translate(2px, 2px);
+      }
+      @keyframes blink {
+        0%, 49% { opacity: 1; }
+        50%, 100% { opacity: 0; }
+      }
+      @keyframes marquee {
+        0% { transform: translateX(100%); }
+        100% { transform: translateX(-100%); }
       }
     </style>
   </head>

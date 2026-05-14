@@ -1,15 +1,17 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
-import type { DiscoveredDevice, ConnectedDevice, DeviceStatus } from '../types'
+import type { DiscoveredDevice, ConnectedDevice, DeviceStatus, TrainerReading } from '../types'
 
 interface DeviceStore {
   discovered: DiscoveredDevice[]
   connected: Record<string, ConnectedDevice>
+  liveReadings: Record<string, TrainerReading>
   isScanning: boolean
 
   setScanning: (v: boolean) => void
   addDiscovered: (device: DiscoveredDevice) => void
   updateDeviceStatus: (deviceId: string, status: DeviceStatus) => void
+  updateLiveReading: (reading: TrainerReading) => void
   promoteToConnected: (deviceId: string) => void
   assignInitials: (deviceId: string, initials: string) => void
   assignAvatar: (deviceId: string, index: number) => void
@@ -22,6 +24,7 @@ export const useDeviceStore = create<DeviceStore>()(
   immer((set) => ({
     discovered: [],
     connected: {},
+    liveReadings: {},
     isScanning: false,
 
     setScanning: (v) =>
@@ -44,6 +47,11 @@ export const useDeviceStore = create<DeviceStore>()(
         if (s.connected[deviceId]) {
           s.connected[deviceId].status = status
         }
+      }),
+
+    updateLiveReading: (reading) =>
+      set((s) => {
+        s.liveReadings[reading.deviceId] = reading
       }),
 
     promoteToConnected: (deviceId) =>
@@ -90,6 +98,7 @@ export const useDeviceStore = create<DeviceStore>()(
       set((s) => {
         s.discovered = []
         s.connected = {}
+        s.liveReadings = {}
         s.isScanning = false
       })
   }))

@@ -1,9 +1,10 @@
 import React from 'react'
 import type { RiderState } from '../../types'
+import { C } from '../../theme'
 
 const RIDER_COLORS = [
-  '#ef4444', '#f97316', '#eab308', '#22c55e',
-  '#00d4ff', '#a855f7', '#ec4899', '#ffffff'
+  C.pink, C.orange, C.yellow, C.green,
+  C.cyan, C.purple, '#ff8c00', C.white,
 ]
 
 interface Props {
@@ -13,134 +14,113 @@ interface Props {
   finishDistanceM: number
 }
 
-export function RiderAvatar({ rider, xPx, isLeader, finishDistanceM }: Props): React.ReactElement {
-  const color = RIDER_COLORS[rider.avatarIndex % RIDER_COLORS.length]
-  const pct = Math.min(100, (rider.positionMeters / finishDistanceM) * 100)
+export function RiderAvatar({ rider, xPx, finishDistanceM }: Props): React.ReactElement {
+  const color    = RIDER_COLORS[rider.avatarIndex % RIDER_COLORS.length]
   const finished = rider.finishTimeMs !== null
+  const wPct     = Math.min(100, (rider.currentWatts / 600) * 100)
 
   return (
     <div
       style={{
         ...styles.wrapper,
         transform: `translateX(${xPx}px)`,
-        transition: 'transform 80ms linear'
+        transition: 'transform 80ms linear',
+        opacity: finished ? 0.7 : 1,
       }}
     >
       {/* Rank badge */}
       {rider.rank !== null && (
-        <div style={{ ...styles.rankBadge, background: color }}>
+        <div style={{ ...styles.rankBadge, background: color, color: C.black }}>
           {rider.rank}
         </div>
       )}
 
-      {/* Bike icon */}
-      <div style={{ ...styles.bikeIcon, background: color, opacity: finished ? 0.6 : 1 }}>
-        <svg viewBox="0 0 32 24" width="32" height="24" fill="none">
-          {/* Simple bike silhouette */}
-          <circle cx="7" cy="17" r="5" stroke="white" strokeWidth="2" />
-          <circle cx="25" cy="17" r="5" stroke="white" strokeWidth="2" />
-          <path d="M7 17 L16 7 L25 17" stroke="white" strokeWidth="2" strokeLinejoin="round" />
-          <path d="M16 7 L20 17" stroke="white" strokeWidth="1.5" />
-          <path d="M14 7 L18 7" stroke="white" strokeWidth="2" strokeLinecap="round" />
-        </svg>
-      </div>
+      {/* Pixel bike sprite */}
+      <PixelBike color={color} />
 
       {/* Name tag */}
-      <div style={{ ...styles.nameTag, borderColor: color }}>
-        <span style={{ ...styles.initials, color }}>{rider.initials || '??'}</span>
+      <div style={{ ...styles.nameTag, background: color, color: C.black }}>
+        {rider.initials || '??'}
       </div>
 
-      {/* Power indicator */}
+      {/* Power bar — pixel blocks */}
       <div style={styles.powerWrap}>
-        <div
-          style={{
-            ...styles.powerBar,
-            width: `${Math.min(100, (rider.currentWatts / 600) * 100)}%`,
-            background: color
-          }}
-        />
-        <span style={styles.powerText}>{Math.round(rider.currentWatts)}W</span>
+        {Array.from({ length: 10 }, (_, i) => (
+          <div
+            key={i}
+            style={{
+              ...styles.powerBlock,
+              background: i < Math.round(wPct / 10) ? color : C.bgDark,
+              border: `1px solid ${C.black}`,
+            }}
+          />
+        ))}
       </div>
-
-      {/* Progress arc */}
-      <div style={styles.progress}>
-        <span style={styles.progressText}>{pct.toFixed(0)}%</span>
+      <div style={{ ...styles.powerLabel, color }}>
+        {Math.round(rider.currentWatts)}W
       </div>
     </div>
+  )
+}
+
+// Simple pixel art bike as SVG with hard pixel edges
+function PixelBike({ color }: { color: string }): React.ReactElement {
+  return (
+    <svg viewBox="0 0 40 28" width={56} height={40} style={{ imageRendering: 'pixelated' }}>
+      {/* Wheels */}
+      <rect x="1"  y="16" width="14" height="2" fill={color} />
+      <rect x="3"  y="14" width="10" height="2" fill={color} />
+      <rect x="3"  y="20" width="10" height="2" fill={color} />
+      <rect x="1"  y="18" width="2"  height="2" fill={color} />
+      <rect x="13" y="18" width="2"  height="2" fill={color} />
+
+      <rect x="25" y="16" width="14" height="2" fill={color} />
+      <rect x="27" y="14" width="10" height="2" fill={color} />
+      <rect x="27" y="20" width="10" height="2" fill={color} />
+      <rect x="25" y="18" width="2"  height="2" fill={color} />
+      <rect x="37" y="18" width="2"  height="2" fill={color} />
+
+      {/* Frame */}
+      <rect x="8"  y="12" width="2"  height="6" fill={color} />
+      <rect x="18" y="6"  width="2"  height="12" fill={color} />
+      <rect x="10" y="10" width="8"  height="2"  fill={color} />
+      <rect x="18" y="16" width="14" height="2"  fill={color} />
+      <rect x="20" y="12" width="10" height="2"  fill={color} />
+
+      {/* Handlebar + seat */}
+      <rect x="16" y="4"  width="6"  height="2" fill={color} />
+      <rect x="28" y="8"  width="2"  height="4" fill={color} />
+      <rect x="26" y="6"  width="6"  height="2" fill={color} />
+    </svg>
   )
 }
 
 const styles: Record<string, React.CSSProperties> = {
   wrapper: {
     position: 'absolute',
-    bottom: 140,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 4,
-    width: 80,
-    marginLeft: -40,
-    willChange: 'transform'
+    bottom: 148,
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+    width: 80, marginLeft: -40,
+    willChange: 'transform',
   },
   rankBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 11,
-    fontWeight: 900,
-    color: '#000',
-    position: 'absolute',
-    top: -28,
-    right: 4
-  },
-  bikeIcon: {
-    width: 56,
-    height: 42,
-    borderRadius: 8,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 4
+    fontSize: 9, fontFamily: "'Press Start 2P', monospace",
+    padding: '3px 5px',
+    position: 'absolute', top: -22, right: 0,
+    boxShadow: `2px 2px 0 #000`,
   },
   nameTag: {
-    padding: '2px 10px',
-    background: 'rgba(0,0,0,0.7)',
-    border: '1px solid',
-    borderRadius: 20,
-    backdropFilter: 'blur(4px)'
-  },
-  initials: {
-    fontSize: 14,
-    fontWeight: 900,
-    letterSpacing: 3
+    fontSize: 9, letterSpacing: 2,
+    padding: '3px 8px',
+    fontFamily: "'Press Start 2P', monospace",
+    boxShadow: `2px 2px 0 #000`,
   },
   powerWrap: {
-    width: 72,
-    height: 6,
-    background: 'rgba(255,255,255,0.1)',
-    borderRadius: 3,
-    overflow: 'hidden',
-    position: 'relative'
+    display: 'flex', gap: 2,
   },
-  powerBar: {
-    height: '100%',
-    borderRadius: 3,
-    transition: 'width 300ms ease'
+  powerBlock: { width: 6, height: 6 },
+  powerLabel: {
+    fontSize: 7, fontFamily: "'Press Start 2P', monospace",
+    textShadow: '1px 1px 0 #000',
   },
-  powerText: {
-    position: 'absolute',
-    right: -36,
-    top: -5,
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.5)',
-    whiteSpace: 'nowrap'
-  },
-  progress: {
-    fontSize: 9,
-    color: 'rgba(255,255,255,0.3)'
-  },
-  progressText: {}
 }

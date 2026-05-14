@@ -1,32 +1,31 @@
 import React from 'react'
 import type { ConnectedDevice } from '../../types'
 import { useDeviceStore } from '../../store/deviceStore'
+import { C } from '../../theme'
 
 const AVATAR_COLORS = [
-  '#ef4444', '#f97316', '#eab308', '#22c55e',
-  '#00d4ff', '#a855f7', '#ec4899', '#ffffff'
+  C.pink, C.orange, C.yellow, C.green,
+  C.cyan, C.purple, '#ff8c00', C.white,
 ]
 
-interface Props {
-  device: ConnectedDevice
-}
+interface Props { device: ConnectedDevice }
 
 export function RiderSetup({ device }: Props): React.ReactElement {
   const assignInitials = useDeviceStore((s) => s.assignInitials)
-  const assignAvatar = useDeviceStore((s) => s.assignAvatar)
+  const assignAvatar   = useDeviceStore((s) => s.assignAvatar)
 
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <span style={styles.deviceName}>{device.name}</span>
-        <span style={styles.connected}>● CONNECTED</span>
+        <span style={styles.name}>{device.name.slice(0, 16)}</span>
+        <span style={styles.connected}>■ CONNECTED</span>
       </div>
 
       <div style={styles.fields}>
         <div style={styles.field}>
-          <label style={styles.label}>INITIALS</label>
+          <div style={styles.label}>INITIALS</div>
           <input
-            style={styles.initialsInput}
+            style={styles.input}
             maxLength={3}
             value={device.initials}
             placeholder="AAA"
@@ -35,17 +34,20 @@ export function RiderSetup({ device }: Props): React.ReactElement {
         </div>
 
         <div style={styles.field}>
-          <label style={styles.label}>COLOUR</label>
-          <div style={styles.avatarRow}>
+          <div style={styles.label}>COLOUR</div>
+          <div style={styles.swatches}>
             {AVATAR_COLORS.map((color, i) => (
               <button
                 key={i}
                 style={{
-                  ...styles.colorSwatch,
+                  ...styles.swatch,
                   background: color,
-                  outline: device.avatarIndex === i
-                    ? `2px solid #fff`
-                    : '2px solid transparent'
+                  border: device.avatarIndex === i
+                    ? `3px solid ${C.white}`
+                    : `3px solid ${C.black}`,
+                  boxShadow: device.avatarIndex === i
+                    ? `2px 2px 0 ${C.black}`
+                    : 'none',
                 }}
                 onClick={() => assignAvatar(device.id, i)}
               />
@@ -59,70 +61,32 @@ export function RiderSetup({ device }: Props): React.ReactElement {
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    background: 'rgba(34,197,94,0.06)',
-    border: '1px solid rgba(34,197,94,0.25)',
-    borderRadius: 8,
-    padding: '14px 16px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12
+    background: '#0d2a1a',
+    border: `3px solid ${C.green}`,
+    boxShadow: `4px 4px 0 ${C.black}`,
+    padding: '12px 14px',
+    display: 'flex', flexDirection: 'column', gap: 12,
   },
   header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center'
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
   },
-  deviceName: {
-    fontSize: 13,
-    fontWeight: 700,
-    color: '#e0e0e0'
+  name:      { fontSize: 8, color: C.white },
+  connected: { fontSize: 7, color: C.green, letterSpacing: 1 },
+  fields:    { display: 'flex', gap: 20, alignItems: 'flex-end', flexWrap: 'wrap' },
+  field:     { display: 'flex', flexDirection: 'column', gap: 8 },
+  label:     { fontSize: 7, color: C.dim, letterSpacing: 2 },
+  input: {
+    width: 90, padding: '8px 10px',
+    background: '#000',
+    border: `3px solid ${C.orange}`,
+    boxShadow: `inset 2px 2px 0 rgba(0,0,0,0.5)`,
+    color: C.yellow,
+    fontSize: 18, letterSpacing: 10, textAlign: 'center',
+    textTransform: 'uppercase', outline: 'none',
   },
-  connected: {
-    fontSize: 10,
-    color: '#22c55e',
-    letterSpacing: 2,
-    fontWeight: 700
+  swatches: { display: 'flex', gap: 6 },
+  swatch: {
+    width: 22, height: 22,
+    cursor: 'pointer', outline: 'none',
   },
-  fields: {
-    display: 'flex',
-    gap: 24,
-    alignItems: 'flex-end'
-  },
-  field: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 6
-  },
-  label: {
-    fontSize: 10,
-    letterSpacing: 3,
-    color: 'rgba(255,255,255,0.4)',
-    fontWeight: 600
-  },
-  initialsInput: {
-    width: 80,
-    padding: '8px 12px',
-    background: 'rgba(255,255,255,0.06)',
-    border: '1px solid rgba(255,255,255,0.2)',
-    borderRadius: 6,
-    color: '#ffffff',
-    fontSize: 20,
-    fontWeight: 800,
-    letterSpacing: 8,
-    textAlign: 'center',
-    textTransform: 'uppercase',
-    outline: 'none'
-  },
-  avatarRow: {
-    display: 'flex',
-    gap: 8
-  },
-  colorSwatch: {
-    width: 24,
-    height: 24,
-    borderRadius: '50%',
-    border: 'none',
-    cursor: 'pointer',
-    outlineOffset: 2
-  }
 }
