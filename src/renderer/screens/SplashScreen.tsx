@@ -7,8 +7,8 @@ import { wattsToVelocity } from '../store/raceStore'
 
 // ── Demo race ─────────────────────────────────────────────────────────────────
 
-const DEMO_TIMEOUT_MS = 30_000
-const DEMO_DISTANCE_M = 2000
+const DEMO_TIMEOUT_MS = 20_000
+const DEMO_DISTANCE_M = 200
 const DEMO_CONFIG = [
   { deviceId: 'd1', initials: 'ACE', avatarIndex: 0, basePower: 265, phase: 0.0 },
   { deviceId: 'd2', initials: 'REX', avatarIndex: 2, basePower: 242, phase: 1.7 },

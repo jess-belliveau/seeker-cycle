@@ -3,7 +3,7 @@ import { immer } from 'zustand/middleware/immer'
 import type { RaceState, RaceConfig, RiderState, TrainerReading, ConnectedDevice } from '../types'
 
 const DEFAULT_CONFIG: RaceConfig = {
-  distanceMeters: 2000,
+  distanceMeters: 250,
   countdownSeconds: 3,
   physicsMode: 'flat-watts'
 }
