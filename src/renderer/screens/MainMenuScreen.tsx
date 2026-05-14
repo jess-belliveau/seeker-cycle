@@ -51,12 +51,20 @@ export function MainMenuScreen(): React.ReactElement {
             ★ CALIFORNIA GAMES EDITION ★ PEDAL HARD ★ RIDE FAST ★ &nbsp;
           </div>
         </div>
-        <button
-          style={{ ...pixelBtn(C.pink), ...styles.quitBtn }}
-          onClick={() => window.api.app.quit()}
-        >
-          ■ QUIT
-        </button>
+        <div style={styles.headerBtns}>
+          <button
+            style={{ ...pixelBtn(C.purple), ...styles.quitBtn }}
+            onClick={() => navigate('/splash')}
+          >
+            ◀ INTRO
+          </button>
+          <button
+            style={{ ...pixelBtn(C.pink), ...styles.quitBtn }}
+            onClick={() => window.api.app.quit()}
+          >
+            ■ QUIT
+          </button>
+        </div>
       </div>
 
       {/* Body */}
@@ -323,7 +331,8 @@ const styles: Record<string, React.CSSProperties> = {
   debugVal: { fontSize: 11, textShadow: `1px 1px 0 ${C.black}` },
   disconnectBtn: { padding: '4px 8px', fontSize: 8 },
 
-  quitBtn: { padding: '8px 14px', fontSize: 8, letterSpacing: 1, flexShrink: 0 },
+  headerBtns: { display: 'flex', gap: 8, flexShrink: 0 },
+  quitBtn: { padding: '8px 14px', fontSize: 8, letterSpacing: 1 },
 
   adminToggle: {
     display: 'flex', alignItems: 'center', gap: 8,

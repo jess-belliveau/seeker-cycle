@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useRef } from 'react'
 import type { ConnectedDevice } from '../../types'
 import { useDeviceStore } from '../../store/deviceStore'
 import { SlotInitialsInput } from './SlotInitialsInput'
@@ -9,11 +9,20 @@ const AVATAR_COLORS = [
   C.cyan, C.purple, '#ff8c00', C.white,
 ]
 
+type EntryMode = 'type' | 'slot'
+
 interface Props { device: ConnectedDevice }
 
 export function RiderSetup({ device }: Props): React.ReactElement {
   const assignInitials = useDeviceStore((s) => s.assignInitials)
   const assignAvatar   = useDeviceStore((s) => s.assignAvatar)
+  const [mode, setMode] = useState<EntryMode>('type')
+
+  function switchMode(next: EntryMode): void {
+    if (next === mode) return
+    assignInitials(device.id, '')
+    setMode(next)
+  }
 
   return (
     <div style={styles.container}>
@@ -24,7 +33,22 @@ export function RiderSetup({ device }: Props): React.ReactElement {
 
       <div style={styles.fields}>
         <div style={styles.field}>
-          <div style={styles.label}>INITIALS</div>
+          <div style={styles.labelRow}>
+            <span style={styles.label}>INITIALS</span>
+            {device.initials.length < 3 && (
+              <div style={styles.toggle}>
+                <button
+                  style={{ ...styles.toggleBtn, ...(mode === 'type' ? styles.toggleBtnActive : {}) }}
+                  onClick={() => switchMode('type')}
+                >TYPE</button>
+                <button
+                  style={{ ...styles.toggleBtn, ...(mode === 'slot' ? styles.toggleBtnActive : {}) }}
+                  onClick={() => switchMode('slot')}
+                >BIKE</button>
+              </div>
+            )}
+          </div>
+
           {device.initials.length === 3 ? (
             <div style={styles.initialsLocked}>
               <span style={styles.initialsDisplay}>{device.initials}</span>
@@ -35,16 +59,22 @@ export function RiderSetup({ device }: Props): React.ReactElement {
                 ↺
               </button>
             </div>
-          ) : (
+          ) : mode === 'slot' ? (
             <SlotInitialsInput
               deviceId={device.id}
+              onComplete={(initials) => assignInitials(device.id, initials)}
+            />
+          ) : (
+            <TypeInitialsInput
               onComplete={(initials) => assignInitials(device.id, initials)}
             />
           )}
         </div>
 
         <div style={styles.field}>
-          <div style={styles.label}>COLOUR</div>
+          <div style={styles.labelRow}>
+            <span style={styles.label}>COLOUR</span>
+          </div>
           <div style={styles.swatches}>
             {AVATAR_COLORS.map((color, i) => (
               <button
@@ -69,6 +99,30 @@ export function RiderSetup({ device }: Props): React.ReactElement {
   )
 }
 
+function TypeInitialsInput({ onComplete }: { onComplete: (v: string) => void }): React.ReactElement {
+  const [value, setValue] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>): void {
+    const v = e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3)
+    setValue(v)
+    if (v.length === 3) onComplete(v)
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      autoFocus
+      value={value}
+      onChange={handleChange}
+      maxLength={3}
+      placeholder="ABC"
+      style={styles.typeInput}
+      spellCheck={false}
+    />
+  )
+}
+
 const styles: Record<string, React.CSSProperties> = {
   container: {
     background: '#0d2a1a',
@@ -84,7 +138,34 @@ const styles: Record<string, React.CSSProperties> = {
   connected: { fontSize: 7, color: C.green, letterSpacing: 1 },
   fields:    { display: 'flex', gap: 20, alignItems: 'flex-end', flexWrap: 'wrap' },
   field:     { display: 'flex', flexDirection: 'column', gap: 8 },
+  labelRow:  { display: 'flex', alignItems: 'center', gap: 10 },
   label:     { fontSize: 7, color: C.dim, letterSpacing: 2 },
+
+  toggle: { display: 'flex' },
+  toggleBtn: {
+    padding: '3px 8px', fontSize: 6, letterSpacing: 1,
+    background: 'transparent', border: `2px solid ${C.borderDim}`,
+    color: C.dim, cursor: 'pointer',
+    fontFamily: "'Press Start 2P', monospace",
+  },
+  toggleBtnActive: {
+    background: C.bgMid, color: C.yellow,
+    borderColor: C.orange,
+  },
+
+  typeInput: {
+    width: 80,
+    background: C.bgDark,
+    border: `3px solid ${C.orange}`,
+    color: C.white,
+    fontSize: 22,
+    letterSpacing: 10,
+    padding: '6px 10px',
+    fontFamily: "'Press Start 2P', monospace",
+    outline: 'none',
+    boxShadow: `3px 3px 0 ${C.black}`,
+    textTransform: 'uppercase' as const,
+  },
   swatches: { display: 'flex', gap: 6 },
   swatch: {
     width: 22, height: 22,

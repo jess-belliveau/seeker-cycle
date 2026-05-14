@@ -91,7 +91,7 @@ const styles: Record<string, React.CSSProperties> = {
   track: { position: 'absolute', inset: 0, overflow: 'hidden' },
 
   sky: {
-    position: 'absolute', left: 0, right: 0, top: 0, bottom: 200,
+    position: 'absolute', left: 0, right: 0, top: 0, bottom: 380,
     background: `linear-gradient(180deg,
       #0d0221 0%, #1a0a2e 30%, #3d1c5e 55%,
       #7b2d4e 70%, #c45c35 85%, #ff8c20 95%, #ffcc44 100%)`,
@@ -99,18 +99,18 @@ const styles: Record<string, React.CSSProperties> = {
 
   sun: {
     position: 'absolute', right: '15%', top: '8%',
-    width: 64, height: 64,
+    width: 80, height: 80,
     background: C.yellow,
-    boxShadow: `0 0 0 8px ${C.amber}, 0 0 0 16px rgba(255,170,0,0.3)`,
+    boxShadow: `0 0 0 10px ${C.amber}, 0 0 0 20px rgba(255,170,0,0.3)`,
   },
 
   mountains: {
-    position: 'absolute', left: 0, right: 0, bottom: 200, height: 160,
+    position: 'absolute', left: 0, right: 0, bottom: 380, height: 200,
     pointerEvents: 'none',
   },
 
   roadWrap: {
-    position: 'absolute', left: 0, right: 0, bottom: 80, height: 140, overflow: 'hidden',
+    position: 'absolute', left: 0, right: 0, bottom: 120, height: 280, overflow: 'hidden',
   },
   road: {
     width: '100%', height: '100%',
@@ -122,16 +122,16 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   centreDashes: {
-    position: 'absolute', left: 0, right: 0, bottom: 148, height: 8,
+    position: 'absolute', left: 0, right: 0, bottom: 258, height: 10,
     background: `repeating-linear-gradient(
       90deg,
-      ${C.yellow} 0px, ${C.yellow} 40px,
-      transparent 40px, transparent 80px
+      ${C.yellow} 0px, ${C.yellow} 48px,
+      transparent 48px, transparent 96px
     )`,
   },
 
   ground: {
-    position: 'absolute', left: 0, right: 0, bottom: 0, height: 80,
+    position: 'absolute', left: 0, right: 0, bottom: 0, height: 120,
     background: `repeating-linear-gradient(
       180deg,
       #3a6b00 0px, #3a6b00 8px,
@@ -141,12 +141,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   marker: {
-    position: 'absolute', bottom: 200,
+    position: 'absolute', bottom: 380,
     display: 'flex', flexDirection: 'column', alignItems: 'center',
     transform: 'translateX(-50%)',
     pointerEvents: 'none',
   },
-  markerPole: { width: 4, height: 32, background: C.white },
+  markerPole: { width: 4, height: 40, background: C.white },
   markerFlag: {
     background: C.orange, color: C.black,
     fontSize: 6, padding: '2px 4px',
@@ -156,12 +156,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   finish: {
-    position: 'absolute', bottom: 80,
+    position: 'absolute', bottom: 120,
     display: 'flex', flexDirection: 'column', alignItems: 'center',
     transform: 'translateX(-50%)',
     pointerEvents: 'none',
   },
-  finishPole: { width: 8, height: 240, background: C.white, boxShadow: `3px 0 0 ${C.black}` },
+  finishPole: { width: 8, height: 320, background: C.white, boxShadow: `3px 0 0 ${C.black}` },
   finishFlag: {
     position: 'absolute', top: -4, left: 8,
     background: C.pink, color: C.black,
@@ -173,7 +173,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   finishChecker: {
     position: 'absolute', bottom: 0, left: 0,
-    width: 8, height: 240,
+    width: 8, height: 320,
     background: `repeating-linear-gradient(
       180deg,
       #fff 0px,#fff 16px,#000 16px,#000 32px

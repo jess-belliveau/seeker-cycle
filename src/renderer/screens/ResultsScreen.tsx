@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import type { SessionResult, LeaderboardEntry } from '../types'
 import { C, pixelBtn, pixelBox, sunsetBg } from '../theme'
@@ -22,11 +22,15 @@ export function ResultsScreen(): React.ReactElement {
   const result: SessionResult | undefined = (location.state as { result?: SessionResult })?.result
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [tab, setTab] = useState<'session' | 'alltime'>('session')
+  const savedRef = useRef(false)
 
   useEffect(() => {
-    if (!result) return
+    if (!result || savedRef.current) return
+    savedRef.current = true
     window.api.data.saveSession(result).catch(console.error)
-    window.api.data.loadLeaderboard().then(setLeaderboard).catch(console.error)
+    window.api.data.loadLeaderboard()
+      .then(setLeaderboard)
+      .catch(console.error)
   }, [result])
 
   if (!result) {

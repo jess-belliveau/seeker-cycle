@@ -8,7 +8,7 @@ const VISIBLE    = 5           // letters shown per reel (must be odd)
 const HALF       = 2           // Math.floor(VISIBLE / 2)
 const STOP_RPM   = 12          // below this → treat as stopped
 const LOCK_MS    = 3000        // ms of stillness before confirming
-const RPM_SCALE  = 0.05        // letters-per-sec per RPM  (60 RPM → 3 letters/s)
+const RPM_SCALE  = 0.04        // letters-per-sec per RPM  (60 RPM → 3 letters/s)
 
 function letter(idx: number): string {
   return ALPHABET[((idx % 26) + 26) % 26]

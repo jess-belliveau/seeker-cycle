@@ -98,7 +98,7 @@ function PixelBike({ color }: { color: string }): React.ReactElement {
 const styles: Record<string, React.CSSProperties> = {
   wrapper: {
     position: 'absolute',
-    bottom: 148,
+    bottom: 258,
     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
     width: 80, marginLeft: -40,
     willChange: 'transform',

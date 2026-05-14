@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import { join, dirname } from 'path'
-import { readFile, writeFile, mkdir, rename } from 'fs/promises'
+import { readFile, writeFile, mkdir, rename, unlink } from 'fs/promises'
+import { randomUUID } from 'crypto'
 import type { SessionResult, LeaderboardEntry, RiderSessionResult } from '../../shared/types'
 
 function dataDir(): string {
@@ -28,9 +29,14 @@ async function readJSON<T>(filePath: string, fallback: T): Promise<T> {
 
 async function writeJSON<T>(filePath: string, data: T): Promise<void> {
   await mkdir(dirname(filePath), { recursive: true })
-  const tmp = filePath + '.tmp'
-  await writeFile(tmp, JSON.stringify(data, null, 2), 'utf-8')
-  await rename(tmp, filePath)
+  const tmp = `${filePath}.${randomUUID()}.tmp`
+  try {
+    await writeFile(tmp, JSON.stringify(data, null, 2), 'utf-8')
+    await rename(tmp, filePath)
+  } catch (err) {
+    await unlink(tmp).catch(() => {})
+    throw err
+  }
 }
 
 export async function saveSession(result: SessionResult): Promise<void> {
