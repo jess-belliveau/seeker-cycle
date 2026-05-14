@@ -1,0 +1,82 @@
+name: Build
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Apple Silicon (M-series)
+          - os: macos-latest
+            label: mac-arm64
+            electron_arch: arm64
+            artifact_glob: dist/*.dmg
+
+          # Intel Mac
+          - os: macos-13
+            label: mac-x64
+            electron_arch: x64
+            artifact_glob: dist/*.dmg
+
+          # Windows
+          - os: windows-latest
+            label: win-x64
+            electron_arch: x64
+            artifact_glob: dist/*.exe
+
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.label }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # npm ci runs postinstall which calls electron-rebuild for @abandonware/noble
+      - name: Install dependencies
+        run: npm ci
+        env:
+          npm_config_arch: ${{ matrix.electron_arch }}
+
+      - name: Build and package
+        run: npx electron-builder --${{ matrix.os == 'windows-latest' && 'win' || 'mac' }} --${{ matrix.electron_arch }}
+        env:
+          # Disable code signing — remove these if you set up a cert
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: seeker-cycle-${{ matrix.label }}
+          path: ${{ matrix.artifact_glob }}
+          retention-days: 30
+          if-no-files-found: error
+
+  # If this was triggered by a version tag, attach artifacts to a GitHub release
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true

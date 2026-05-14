@@ -1,0 +1,45 @@
+appId: com.seekerlabs.seeker-cycle
+productName: Seeker Cycle
+copyright: Copyright © 2025 Seeker Labs
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - out/**/*
+  - node_modules/**/*
+  - "!node_modules/**/{README,readme,CHANGELOG,changelog}.*"
+  - "!node_modules/**/*.{md,txt}"
+
+# Keep native addons out of asar so they can be loaded
+asarUnpack:
+  - node_modules/@abandonware/noble/**
+  - node_modules/bluetooth-hci-socket/**
+  - "**/*.node"
+
+mac:
+  target:
+    - target: dmg
+  category: public.app-category.games
+
+dmg:
+  title: Seeker Cycle
+  window:
+    width: 540
+    height: 380
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+linux:
+  target:
+    - target: AppImage
+      arch: [x64]
+  category: Game
