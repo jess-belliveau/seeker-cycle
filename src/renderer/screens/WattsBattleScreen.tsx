@@ -46,16 +46,18 @@ function getExpression(watts: number): Expression {
 
 // ─── WarioRider SVG ───────────────────────────────────────────────────────────
 
-function WarioRider({ color, expression, flip }: {
+function WarioRider({ color, expression, flip, width: w = 192 }: {
   color: string
   expression: Expression
   flip?: boolean
+  width?: number
 }): React.ReactElement {
+  const h = Math.round(w * 80 / 64)
   return (
     <svg
       viewBox="0 0 64 80"
-      width={192}
-      height={240}
+      width={w}
+      height={h}
       style={{ imageRendering: 'pixelated', display: 'block', transform: flip ? 'scaleX(-1)' : undefined }}
     >
       {/* Helmet */}
@@ -150,7 +152,7 @@ function PowerBar({ watts, color }: { watts: number; color: string }): React.Rea
   )
 }
 
-// ─── Player panel ─────────────────────────────────────────────────────────────
+// ─── Player panel (during battle) ─────────────────────────────────────────────
 
 function PlayerPanel({ player, flip }: {
   player: PlayerState
@@ -171,9 +173,55 @@ function PlayerPanel({ player, flip }: {
         {Math.round(player.currentWatts)}W
       </div>
       <PowerBar watts={player.currentWatts} color={player.color} />
-      <div style={styles.avgLabel}>
-        AVG: {avg}W
+      <div style={styles.avgLabel}>AVG: {avg}W</div>
+    </div>
+  )
+}
+
+// ─── Finished overlay ─────────────────────────────────────────────────────────
+
+function FinishedOverlay({ players, onMenu }: {
+  players: PlayerState[]
+  onMenu: () => void
+}): React.ReactElement {
+  const sorted = [...players].sort((a, b) => getAvgWatts(b) - getAvgWatts(a))
+  const winner = sorted[0]
+  const others = sorted.slice(1)
+
+  return (
+    <div style={styles.finishedOverlay}>
+      {/* Winner tile */}
+      <div style={styles.winnerTile}>
+        <div style={styles.winnerBadge}>★ WINNER! ★</div>
+        <WarioRider color={winner.color} expression="maxing" width={200} />
+        <div style={{ ...styles.winnerInitials, color: winner.color }}>
+          {winner.initials}
+        </div>
+        <div style={styles.winnerWattsRow}>
+          <span style={{ ...styles.winnerBigWatts, color: winner.color }}>
+            {Math.round(getAvgWatts(winner))}
+          </span>
+          <span style={{ ...styles.winnerWUnit, color: winner.color }}>W</span>
+        </div>
+        <div style={styles.avgWattsLabel}>AVG WATTS</div>
       </div>
+
+      {/* Other riders */}
+      {others.length > 0 && (
+        <div style={styles.othersRow}>
+          {others.map((p, i) => (
+            <div key={p.deviceId} style={styles.otherTile}>
+              <span style={styles.otherRank}>{i + 2}nd</span>
+              <WarioRider color={p.color} expression="idle" width={88} />
+              <div style={{ ...styles.otherInitials, color: p.color }}>{p.initials}</div>
+              <div style={styles.otherWatts}>{Math.round(getAvgWatts(p))}W</div>
+              <div style={styles.otherAvgLabel}>AVG</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button style={styles.finMenuBtn} onClick={onMenu}>MENU</button>
     </div>
   )
 }
@@ -208,7 +256,7 @@ export function WattsBattleScreen(): React.ReactElement {
   const statusRef = useRef<BattleStatus>('setup')
   useEffect(() => { statusRef.current = status }, [status])
 
-  // Countdown → racing (fires when status becomes 'countdown')
+  // Countdown → racing
   useEffect(() => {
     if (status !== 'countdown') return
     setCountdown(COUNTDOWN_S)
@@ -221,7 +269,7 @@ export function WattsBattleScreen(): React.ReactElement {
     return () => timers.forEach(clearTimeout)
   }, [status])
 
-  // Battle timer (fires when status becomes 'racing')
+  // Battle timer
   useEffect(() => {
     if (status !== 'racing') return
     const durationMs = durationSecs * 1000
@@ -238,7 +286,7 @@ export function WattsBattleScreen(): React.ReactElement {
     return () => clearInterval(id)
   }, [status, durationSecs])
 
-  // BLE reading accumulation (registered once; uses ref for hot-path status check)
+  // BLE reading accumulation
   useEffect(() => {
     const unsub = window.api.ble.onTrainerReading((reading) => {
       setPlayers((prev) =>
@@ -281,17 +329,13 @@ export function WattsBattleScreen(): React.ReactElement {
         })),
       }
       navigate('/results', { state: { result } })
-    }, 3000)
+    }, 4000)
     return () => clearTimeout(timer)
   }, [status, players, navigate])
 
   const p0 = players[0]
   const p1 = players[1]
   const timerSecs = (remainingMs / 1000).toFixed(1)
-
-  const winnerInitials = status === 'finished'
-    ? [...players].sort((a, b) => getAvgWatts(b) - getAvgWatts(a))[0]?.initials ?? '???'
-    : null
 
   if (players.length === 0) {
     return (
@@ -304,76 +348,67 @@ export function WattsBattleScreen(): React.ReactElement {
 
   return (
     <div style={styles.container}>
-      {/* Title bar */}
       <div style={styles.titleBar}>
         <span style={styles.titleText}>WATTS BATTLE!</span>
       </div>
 
-      {/* Battle area */}
       <div style={styles.battleArea}>
+        {status === 'finished' ? (
+          <FinishedOverlay players={players} onMenu={() => navigate('/menu')} />
+        ) : (
+          <>
+            {p0 && <PlayerPanel player={p0} flip={false} />}
 
-        {p0 && <PlayerPanel player={p0} flip={false} />}
+            <div style={{ ...styles.center, ...(status === 'setup' ? styles.centerSetup : {}) }}>
+              {status === 'setup' && (
+                <div style={styles.setupBox}>
+                  <div style={styles.setupLabel}>BATTLE TIME</div>
+                  <div style={styles.setupDuration}>{durationSecs}s</div>
+                  <input
+                    type="range"
+                    className="wb-slider"
+                    min={MIN_DURATION_S}
+                    max={MAX_DURATION_S}
+                    step={DURATION_STEP_S}
+                    value={durationSecs}
+                    onChange={(e) => {
+                      const secs = Number(e.target.value)
+                      setDurationSecs(secs)
+                      setRemainingMs(secs * 1000)
+                    }}
+                    style={styles.slider}
+                  />
+                  <div style={styles.sliderRange}>
+                    <span>{MIN_DURATION_S}s</span>
+                    <span>{MAX_DURATION_S}s</span>
+                  </div>
+                  <button style={styles.startBtn} onClick={() => setStatus('countdown')}>
+                    START!
+                  </button>
+                  <button style={styles.setupBackBtn} onClick={() => navigate('/menu')}>
+                    ◀ MENU
+                  </button>
+                </div>
+              )}
 
-        {/* Center column — widens during setup */}
-        <div style={{ ...styles.center, ...(status === 'setup' ? styles.centerSetup : {}) }}>
+              {status === 'countdown' && (
+                <div style={styles.countdownNum} key={countdown}>
+                  {countdown === 0 ? 'GO!' : countdown}
+                </div>
+              )}
 
-          {status === 'setup' && (
-            <div style={styles.setupBox}>
-              <div style={styles.setupLabel}>BATTLE TIME</div>
-              <div style={styles.setupDuration}>{durationSecs}s</div>
-              <input
-                type="range"
-                className="wb-slider"
-                min={MIN_DURATION_S}
-                max={MAX_DURATION_S}
-                step={DURATION_STEP_S}
-                value={durationSecs}
-                onChange={(e) => {
-                  const secs = Number(e.target.value)
-                  setDurationSecs(secs)
-                  setRemainingMs(secs * 1000)
-                }}
-                style={styles.slider}
-              />
-              <div style={styles.sliderRange}>
-                <span>{MIN_DURATION_S}s</span>
-                <span>{MAX_DURATION_S}s</span>
-              </div>
-              <button style={styles.startBtn} onClick={() => setStatus('countdown')}>
-                START!
-              </button>
-              <button style={styles.setupBackBtn} onClick={() => navigate('/menu')}>
-                ◀ MENU
-              </button>
+              {status === 'racing' && (
+                <>
+                  <div style={styles.timerNum}>{timerSecs}</div>
+                  <div style={styles.vsText}>VS</div>
+                  <div style={styles.timerLabel}>SEC</div>
+                </>
+              )}
             </div>
-          )}
 
-          {status === 'countdown' && (
-            <div style={styles.countdownNum} key={countdown}>
-              {countdown === 0 ? 'GO!' : countdown}
-            </div>
-          )}
-
-          {status === 'racing' && (
-            <>
-              <div style={styles.timerNum}>{timerSecs}</div>
-              <div style={styles.vsText}>VS</div>
-              <div style={styles.timerLabel}>SEC</div>
-            </>
-          )}
-
-          {status === 'finished' && winnerInitials && (
-            <div style={styles.winnerBox}>
-              <div style={styles.winnerLabel}>WINNER!</div>
-              <div style={styles.winnerName}>{winnerInitials}</div>
-              <button style={styles.menuBtn} onClick={() => navigate('/menu')}>
-                MENU
-              </button>
-            </div>
-          )}
-        </div>
-
-        {p1 && <PlayerPanel player={p1} flip={true} />}
+            {p1 && <PlayerPanel player={p1} flip={true} />}
+          </>
+        )}
       </div>
 
       <style>{css}</style>
@@ -412,6 +447,8 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: 'hidden',
   },
 
+  // ── Active battle ────────────────────────────────────────────────────────────
+
   playerPanel: {
     flex: 1,
     display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -426,17 +463,13 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 22, letterSpacing: 4,
     textShadow: '3px 3px 0 rgba(0,0,0,0.25)',
   },
-  riderWrap: {
-    display: 'flex', justifyContent: 'center',
-  },
+  riderWrap: { display: 'flex', justifyContent: 'center' },
   wattsNum: {
     fontSize: 30,
     fontVariantNumeric: 'tabular-nums',
     textShadow: '3px 3px 0 rgba(0,0,0,0.18)',
   },
-  avgLabel: {
-    fontSize: 10, color: '#000', letterSpacing: 2,
-  },
+  avgLabel: { fontSize: 10, color: '#000', letterSpacing: 2 },
 
   center: {
     width: 190,
@@ -446,9 +479,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 10,
     padding: '0 8px',
   },
-  centerSetup: {
-    width: 280,
-  },
+  centerSetup: { width: 280 },
 
   // Setup
   setupBox: {
@@ -460,26 +491,18 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '6px 6px 0 rgba(0,0,0,0.25)',
     width: '100%',
   },
-  setupLabel: {
-    fontSize: 9, color: '#ff8800',
-    letterSpacing: 3,
-  },
+  setupLabel: { fontSize: 9, color: '#ff8800', letterSpacing: 3 },
   setupDuration: {
     fontSize: 52, color: '#ffe000',
-    letterSpacing: 2,
-    lineHeight: 1,
+    letterSpacing: 2, lineHeight: 1,
     textShadow: '4px 4px 0 #ff4400',
     fontVariantNumeric: 'tabular-nums',
   },
-  slider: {
-    width: '100%',
-    cursor: 'pointer',
-  },
+  slider: { width: '100%', cursor: 'pointer' },
   sliderRange: {
     display: 'flex', justifyContent: 'space-between',
     width: '100%',
-    fontSize: 7, color: '#888',
-    letterSpacing: 1,
+    fontSize: 7, color: '#888', letterSpacing: 1,
     marginTop: -8,
   },
   startBtn: {
@@ -491,7 +514,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: "'Press Start 2P', monospace",
     cursor: 'pointer',
     boxShadow: '4px 4px 0 rgba(255,255,255,0.4)',
-    textShadow: '2px 2px 0 rgba(0,0,0,0.2)',
   },
   setupBackBtn: {
     padding: '7px 14px',
@@ -514,44 +536,98 @@ const styles: Record<string, React.CSSProperties> = {
     fontVariantNumeric: 'tabular-nums',
     textShadow: '3px 3px 0 rgba(0,0,0,0.15)',
   },
-  timerLabel: {
-    fontSize: 9, color: '#555', letterSpacing: 3,
-  },
+  timerLabel: { fontSize: 9, color: '#555', letterSpacing: 3 },
   vsText: {
     fontSize: 44, color: '#ff2200',
     textShadow: '4px 4px 0 #000',
     letterSpacing: 5,
   },
 
-  // Finished
-  winnerBox: {
+  // ── Finished overlay ─────────────────────────────────────────────────────────
+
+  finishedOverlay: {
+    flex: 1,
     display: 'flex', flexDirection: 'column', alignItems: 'center',
-    gap: 12,
+    justifyContent: 'center',
+    padding: '12px 32px 16px',
+    gap: 16,
+    overflow: 'hidden',
+  },
+
+  winnerTile: {
+    display: 'flex', flexDirection: 'column', alignItems: 'center',
+    gap: 6,
     background: '#000',
-    padding: '18px 24px',
-    border: '4px solid #ffe000',
-    boxShadow: '6px 6px 0 rgba(0,0,0,0.3)',
+    padding: '16px 48px 20px',
+    border: '5px solid #ffe000',
+    boxShadow: '8px 8px 0 rgba(0,0,0,0.3)',
   },
-  winnerLabel: {
-    fontSize: 13, color: '#ffe000',
-    letterSpacing: 3,
+  winnerBadge: {
+    fontSize: 11, color: '#ffe000',
+    letterSpacing: 5,
     animation: 'blink 0.5s step-end infinite',
+    marginBottom: 4,
   },
-  winnerName: {
-    fontSize: 28, color: '#fff',
-    letterSpacing: 4,
-    textShadow: '3px 3px 0 #ff4400',
-  },
-  menuBtn: {
+  winnerInitials: {
+    fontSize: 22, letterSpacing: 6,
+    textShadow: '3px 3px 0 rgba(255,255,255,0.1)',
     marginTop: 8,
-    padding: '10px 20px',
-    fontSize: 9, letterSpacing: 2,
-    background: '#ffe000', color: '#000',
-    border: '3px solid #ffe000',
+  },
+  winnerWattsRow: {
+    display: 'flex', alignItems: 'baseline', gap: 4,
+  },
+  winnerBigWatts: {
+    fontSize: 88, lineHeight: 1,
+    fontVariantNumeric: 'tabular-nums',
+    textShadow: '6px 6px 0 rgba(0,0,0,0.35)',
+  },
+  winnerWUnit: {
+    fontSize: 40,
+    textShadow: '4px 4px 0 rgba(0,0,0,0.3)',
+  },
+  avgWattsLabel: {
+    fontSize: 7, color: '#777',
+    letterSpacing: 4, marginTop: 2,
+  },
+
+  othersRow: {
+    display: 'flex', gap: 16,
+  },
+  otherTile: {
+    display: 'flex', flexDirection: 'column', alignItems: 'center',
+    gap: 4,
+    background: 'rgba(0,0,0,0.14)',
+    padding: '12px 20px',
+    border: '3px solid rgba(0,0,0,0.35)',
+  },
+  otherRank: {
+    fontSize: 7, color: '#333', letterSpacing: 2, marginBottom: 4,
+  },
+  otherInitials: {
+    fontSize: 12, letterSpacing: 3,
+    textShadow: '2px 2px 0 rgba(0,0,0,0.2)',
+    marginTop: 4,
+  },
+  otherWatts: {
+    fontSize: 26, color: '#000',
+    fontVariantNumeric: 'tabular-nums',
+    textShadow: '2px 2px 0 rgba(0,0,0,0.15)',
+  },
+  otherAvgLabel: {
+    fontSize: 6, color: '#555', letterSpacing: 3,
+  },
+
+  finMenuBtn: {
+    padding: '12px 36px',
+    fontSize: 10, letterSpacing: 2,
+    background: '#000', color: '#ffe000',
+    border: '3px solid #000',
     fontFamily: "'Press Start 2P', monospace",
     cursor: 'pointer',
-    boxShadow: '3px 3px 0 rgba(255,255,255,0.3)',
+    boxShadow: '4px 4px 0 rgba(0,0,0,0.2)',
   },
+
+  // ── No-device fallback ───────────────────────────────────────────────────────
 
   noDevices: {
     flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
