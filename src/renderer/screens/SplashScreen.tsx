@@ -154,7 +154,7 @@ export function SplashScreen(): React.ReactElement {
         <div style={styles.cornerBR}>◆</div>
 
         {/* Top label */}
-        <div style={styles.presents}>★ EPYX SOFT ★ PRESENTS ★</div>
+        <div style={styles.presents}>★ BREWS BREWS BIKES ★ PRESENTS ★</div>
 
         {/* Main title */}
         <div style={styles.titleSeeker}>SEEKER</div>
@@ -213,7 +213,7 @@ function DemoRace({ onFinish }: { onFinish: () => void }): React.ReactElement {
 
   return (
     <div style={styles.demoOverlay}>
-      <RaceTrack race={race} windowWidth={window.innerWidth} />
+      <RaceTrack race={race} windowWidth={window.innerWidth} windowHeight={window.innerHeight} />
       <div style={styles.demoBadge}>◆ DEMO ◆</div>
       <div style={styles.demoPrompt}>PRESS ANY KEY TO PLAY</div>
     </div>

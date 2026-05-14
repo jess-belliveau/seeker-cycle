@@ -14,7 +14,8 @@ export function RaceScreen(): React.ReactElement {
   const { race, initRace, startCountdown, startRacing, tickPhysics, endRace } = useRaceStore()
   const [countdown, setCountdown] = useState<number | null>(null)
   const [showGo, setShowGo] = useState(false)
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth)
+  const [windowWidth,  setWindowWidth]  = useState(window.innerWidth)
+  const [windowHeight, setWindowHeight] = useState(window.innerHeight)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
@@ -54,7 +55,10 @@ export function RaceScreen(): React.ReactElement {
   }, [race.status])
 
   useEffect(() => {
-    const onResize = (): void => setWindowWidth(window.innerWidth)
+    const onResize = (): void => {
+      setWindowWidth(window.innerWidth)
+      setWindowHeight(window.innerHeight)
+    }
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
@@ -83,7 +87,7 @@ export function RaceScreen(): React.ReactElement {
   return (
     <div style={styles.container}>
       {race.status !== 'idle' && (
-        <RaceTrack race={race} windowWidth={windowWidth} />
+        <RaceTrack race={race} windowWidth={windowWidth} windowHeight={windowHeight} />
       )}
 
       {(race.status === 'racing' || race.status === 'finished') && (
