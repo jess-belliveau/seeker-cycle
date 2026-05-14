@@ -180,7 +180,7 @@ export function SplashScreen(): React.ReactElement {
         <div style={styles.copyright}>© 2025 SEEKER LABS · ALL RIGHTS RESERVED</div>
       </div>
 
-      {showDemo && <DemoRace />}
+      {showDemo && <DemoRace onFinish={() => setShowDemo(false)} />}
       <style>{css}</style>
     </div>
   )
@@ -188,7 +188,7 @@ export function SplashScreen(): React.ReactElement {
 
 // ── Demo race overlay ─────────────────────────────────────────────────────────
 
-function DemoRace(): React.ReactElement {
+function DemoRace({ onFinish }: { onFinish: () => void }): React.ReactElement {
   const [race, setRace] = useState<RaceState>(makeDemoRace)
   const rafRef  = useRef<number>(0)
   const lastRef = useRef<number>(0)
@@ -204,12 +204,12 @@ function DemoRace(): React.ReactElement {
     return () => cancelAnimationFrame(rafRef.current)
   }, [])
 
-  // Auto-reset 4s after finish
+  // Return to splash 4s after finish
   useEffect(() => {
     if (race.status !== 'finished') return
-    const id = setTimeout(() => setRace(makeDemoRace()), 4000)
+    const id = setTimeout(onFinish, 4000)
     return () => clearTimeout(id)
-  }, [race.status])
+  }, [race.status, onFinish])
 
   return (
     <div style={styles.demoOverlay}>
