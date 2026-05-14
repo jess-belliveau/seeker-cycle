@@ -5,6 +5,12 @@ import { useDeviceStore } from '../store/deviceStore'
 import { useSettingsStore } from '../store/settingsStore'
 import { C, pixelBox, pixelBtn, sunsetBg } from '../theme'
 
+const css2 = `
+@keyframes scanPulse {
+  0%,100% { opacity:1; } 50% { opacity:0.2; }
+}
+`
+
 interface GameMode {
   id: string
   label: string
@@ -31,7 +37,7 @@ function formatTime(ms: number | null): string {
 export function MainMenuScreen(): React.ReactElement {
   const navigate = useNavigate()
   const { entries, loading, load } = useLeaderboardStore()
-  const { connected } = useDeviceStore()
+  const { connected, isScanning } = useDeviceStore()
   const { adminMode, toggleAdminMode } = useSettingsStore()
   const connectedDevices = Object.values(connected).filter((d) => d.status === 'connected')
   const top5 = entries.slice(0, 5)
@@ -72,32 +78,61 @@ export function MainMenuScreen(): React.ReactElement {
 
         {/* Left — game modes */}
         <div style={styles.leftPanel}>
+
+          {/* Connect Devices status card */}
+          <button
+            style={styles.devicesCard}
+            onClick={() => navigate('/devices')}
+          >
+            <div style={styles.devicesCardTop}>
+              <span style={styles.devicesCardLabel}>CONNECT DEVICES</span>
+              {isScanning && (
+                <span style={styles.scanDot} />
+              )}
+            </div>
+            {connectedDevices.length > 0 ? (
+              <span style={{ ...styles.devicesCardStatus, color: C.green }}>
+                ■ {connectedDevices.length} CONNECTED
+              </span>
+            ) : (
+              <span style={{ ...styles.devicesCardStatus, color: C.muted }}>
+                ○ NO DEVICES
+              </span>
+            )}
+          </button>
+
           <div style={styles.sectionLabel}>▶ SELECT MODE</div>
 
           <div style={styles.modeList}>
-            {GAME_MODES.map((mode) => (
-              <button
-                key={mode.id}
-                style={{
-                  ...styles.modeBtn,
-                  ...(mode.enabled ? styles.modeBtnOn : styles.modeBtnOff)
-                }}
-                onClick={() => mode.enabled && navigate('/devices')}
-                disabled={!mode.enabled}
-              >
-                <span style={styles.modeBtnLabel}>{mode.label}</span>
-                <span style={styles.modeBtnDesc}>{mode.description}</span>
-                {!mode.enabled && <span style={styles.comingSoon}>LOCKED</span>}
-              </button>
-            ))}
+            {GAME_MODES.map((mode) => {
+              const needsDevice = mode.id === 'race'
+              const hasDevice = connectedDevices.length > 0
+              const isClickable = mode.enabled && (!needsDevice || hasDevice)
+              return (
+                <button
+                  key={mode.id}
+                  style={{
+                    ...styles.modeBtn,
+                    ...(mode.enabled
+                      ? (needsDevice && !hasDevice ? styles.modeBtnNeedsDevice : styles.modeBtnOn)
+                      : styles.modeBtnOff),
+                  }}
+                  onClick={() => {
+                    if (!isClickable) return
+                    navigate('/character-select')
+                  }}
+                  disabled={!mode.enabled}
+                >
+                  <span style={styles.modeBtnLabel}>{mode.label}</span>
+                  <span style={styles.modeBtnDesc}>{mode.description}</span>
+                  {!mode.enabled && <span style={styles.comingSoon}>LOCKED</span>}
+                  {mode.enabled && needsDevice && !hasDevice && (
+                    <span style={styles.comingSoon}>CONNECT DEVICES FIRST</span>
+                  )}
+                </button>
+              )
+            })}
           </div>
-
-          <button
-            style={{ ...pixelBtn(C.cyan), ...styles.devicesBtn }}
-            onClick={() => navigate('/devices')}
-          >
-            ⚡ CONNECT DEVICES
-          </button>
 
           <button
             style={{ ...styles.adminToggle, ...(adminMode ? styles.adminToggleOn : {}) }}
@@ -165,6 +200,7 @@ export function MainMenuScreen(): React.ReactElement {
       </div>
 
       <style>{css}</style>
+      <style>{css2}</style>
     </div>
   )
 }
@@ -281,12 +317,44 @@ const styles: Record<string, React.CSSProperties> = {
     opacity: 0.6,
     cursor: 'default',
   },
+  modeBtnNeedsDevice: {
+    background: '#0d0221',
+    border: `3px solid ${C.borderDim}`,
+    boxShadow: `4px 4px 0 ${C.black}`,
+    color: C.dim,
+    opacity: 0.7,
+    cursor: 'default',
+  },
   modeBtnLabel: { fontSize: 11, letterSpacing: 2 },
   modeBtnDesc:  { fontSize: 7,  color: C.dim, letterSpacing: 1 },
   comingSoon: {
     position: 'absolute', top: 8, right: 10,
     fontSize: 6, color: C.purple, letterSpacing: 1,
     border: `2px solid ${C.purple}`, padding: '2px 4px',
+  },
+  devicesCard: {
+    display: 'flex', flexDirection: 'column', gap: 6,
+    padding: '12px 14px',
+    background: C.bgDark,
+    border: `3px solid ${C.cyan}`,
+    boxShadow: `4px 4px 0 ${C.black}`,
+    cursor: 'pointer',
+    textAlign: 'left' as const,
+    fontFamily: "'Press Start 2P', monospace",
+  },
+  devicesCardTop: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+  },
+  devicesCardLabel: {
+    fontSize: 8, color: C.cyan, letterSpacing: 2,
+  },
+  devicesCardStatus: {
+    fontSize: 7, letterSpacing: 1,
+  },
+  scanDot: {
+    display: 'inline-block', width: 8, height: 8,
+    background: C.cyan,
+    animation: 'scanPulse 1s step-end infinite',
   },
   devicesBtn: {
     padding: '14px 16px',

@@ -21,7 +21,7 @@ export function RaceScreen(): React.ReactElement {
     const riders = Object.values(connected).filter(
       (d) => d.status === 'connected' && d.initials.length > 0
     )
-    if (riders.length === 0) { navigate('/devices'); return }
+    if (riders.length === 0) { navigate('/character-select'); return }
     initRace(riders)
     startCountdown()
     setCountdown(3)

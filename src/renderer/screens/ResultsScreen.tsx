@@ -108,7 +108,7 @@ export function ResultsScreen(): React.ReactElement {
         <button style={{ ...pixelBtn(C.dim), ...styles.actionBtn }}
           onClick={() => navigate('/menu')}>MENU</button>
         <button style={{ ...pixelBtn(C.green), ...styles.actionBtn }}
-          onClick={() => navigate('/devices')}>RACE AGAIN ▶</button>
+          onClick={() => navigate('/character-select')}>RACE AGAIN ▶</button>
       </div>
     </div>
   )
