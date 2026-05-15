@@ -5,16 +5,15 @@ import { RiderAvatar } from './RiderAvatar'
 
 // ─── Perspective constants ────────────────────────────────────────────────────
 
-const VY_PCT         = 0.38   // vanishing point height (fraction of screen)
-const LEADER_DEPTH   = 0.20   // leader sits this far from horizon (0=horizon, 1=camera)
-const MAX_GAP_M      = 80     // gap in metres that maps follower to camera level
-const ROAD_H_HALF    = 30     // road half-width at horizon, px
-const ROAD_B_HALF_F  = 0.43   // road half-width at bottom, fraction of windowWidth
+const VY_PCT         = 0.38
+const LEADER_DEPTH   = 0.20
+const MAX_GAP_M      = 80
+const ROAD_H_HALF    = 30
+const ROAD_B_HALF_F  = 0.43
 
-// Road-marking scrolling
-const VIEW_AHEAD_M   = 90     // metres visible ahead of leader
-const VIEW_BEHIND_M  = 35     // metres visible behind leader
-const STRIPE_GAP_M   = 11     // metres between centre-line dashes
+const VIEW_AHEAD_M   = 90
+const VIEW_BEHIND_M  = 35
+const STRIPE_GAP_M   = 11
 
 interface Props {
   race:         RaceState
@@ -26,6 +25,7 @@ export function RaceTrack({ race, windowWidth, windowHeight }: Props): React.Rea
   const riders     = Object.values(race.riders)
   const sorted     = [...riders].sort((a, b) => b.positionMeters - a.positionMeters)
   const leaderPos  = sorted[0]?.positionMeters ?? 0
+  const leaderVel  = sorted[0]?.velocityMs ?? 0
 
   const VX          = windowWidth  * 0.5
   const VY          = windowHeight * VY_PCT
@@ -47,14 +47,13 @@ export function RaceTrack({ race, windowWidth, windowHeight }: Props): React.Rea
   }
 
   // ── Centre-line dashes ─────────────────────────────────────────────────────
-  // One dash every STRIPE_GAP_M world-metres; scroll via leaderPos.
 
-  const stripes: number[] = []  // depth values
+  const stripes: number[] = []
   const minI = Math.floor((leaderPos - VIEW_BEHIND_M) / STRIPE_GAP_M)
   const maxI = Math.ceil ((leaderPos + VIEW_AHEAD_M)  / STRIPE_GAP_M)
 
   for (let i = minI; i <= maxI; i++) {
-    const rel = i * STRIPE_GAP_M - leaderPos   // +ve = ahead, -ve = behind
+    const rel = i * STRIPE_GAP_M - leaderPos
     let depth: number
     if (rel >= 0 && rel <= VIEW_AHEAD_M) {
       depth = LEADER_DEPTH * (1 - rel / VIEW_AHEAD_M)
@@ -68,9 +67,14 @@ export function RaceTrack({ race, windowWidth, windowHeight }: Props): React.Rea
 
   // ── Finish line ────────────────────────────────────────────────────────────
 
-  const distToFinish  = race.config.distanceMeters - leaderPos
-  const showFinish    = distToFinish >= 0 && distToFinish <= VIEW_AHEAD_M
-  const finishDepth   = showFinish ? LEADER_DEPTH * (1 - distToFinish / VIEW_AHEAD_M) : 0
+  const distToFinish = race.config.distanceMeters - leaderPos
+  const showFinish   = distToFinish >= 0 && distToFinish <= VIEW_AHEAD_M
+  const finishDepth  = showFinish ? LEADER_DEPTH * (1 - distToFinish / VIEW_AHEAD_M) : 0
+
+  // ── Speed lines ───────────────────────────────────────────────────────────
+  // Radial streaks from the vanishing point at speed > 5 m/s
+
+  const speedIntensity = Math.max(0, Math.min(1, (leaderVel - 5) / 12))
 
   // ── Road geometry ──────────────────────────────────────────────────────────
 
@@ -79,9 +83,19 @@ export function RaceTrack({ race, windowWidth, windowHeight }: Props): React.Rea
   const SHOULDER = 100
   const sl_b = rl_b - SHOULDER,   sr_b = rr_b + SHOULDER
 
-  // ── Rider z-order: furthest from camera first (leader last → on top) ───────
+  // ── Rider z-order ─────────────────────────────────────────────────────────
 
   const ridersBackFirst = [...sorted].reverse()
+
+  // ── Finish banner helpers ──────────────────────────────────────────────────
+
+  const finishY  = depthToY(finishDepth)
+  const finishHw = roadHalf(finishDepth)
+  // Poles reach from the finish line y up to the very top of the screen (plus some off-screen)
+  const poleTopY  = Math.max(-40, finishY - finishHw * 3.2)
+  const poleW     = Math.max(4, finishDepth * 18)
+  const checkerHt = Math.max(6, finishDepth * 80)
+  const FINISH_SQUARES = 14
 
   return (
     <div style={S.container}>
@@ -96,31 +110,39 @@ export function RaceTrack({ race, windowWidth, windowHeight }: Props): React.Rea
             <stop offset="90%"  stopColor="#ef7a1e" />
             <stop offset="100%" stopColor="#ffcc38" />
           </linearGradient>
-
           <radialGradient id="sun" cx="50%" cy="50%" r="50%">
             <stop offset="0%"   stopColor="#fffbd0" stopOpacity="1" />
             <stop offset="28%"  stopColor="#ffee44" stopOpacity="1" />
             <stop offset="55%"  stopColor="#ff9922" stopOpacity="0.55" />
             <stop offset="100%" stopColor="#ff3300" stopOpacity="0" />
           </radialGradient>
-
           <linearGradient id="road" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%"   stopColor="#221a10" />
             <stop offset="100%" stopColor="#342a1c" />
           </linearGradient>
+
+          {/* Finish line pole glow filter */}
+          <filter id="poleGlow" x="-100%" y="-20%" width="300%" height="140%">
+            <feGaussianBlur stdDeviation="6" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          <filter id="finishTextGlow" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="8" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
         </defs>
 
         {/* Sky */}
         <rect x={0} y={0} width={windowWidth} height={windowHeight} fill="url(#sky)" />
 
-        {/* Sun halo + disc */}
+        {/* Sun */}
         <circle cx={VX} cy={VY} r={130} fill="url(#sun)" />
         <circle cx={VX} cy={VY} r={48}  fill="#fff8c0" />
         <circle cx={VX} cy={VY} r={38}  fill="#ffee44" />
 
-        {/* Pixel mountains — far layer */}
+        {/* Mountains — far */}
         <polygon fill="#1c0730" opacity="0.9" points={[
-          [0,              VY * 1.55],
+          [0,                   VY * 1.55],
           [windowWidth * 0.08,  VY * 0.60],
           [windowWidth * 0.22,  VY * 1.10],
           [windowWidth * 0.36,  VY * 0.52],
@@ -130,10 +152,10 @@ export function RaceTrack({ race, windowWidth, windowHeight }: Props): React.Rea
           [windowWidth * 0.90,  VY * 0.58],
           [windowWidth,         VY * 1.05],
           [windowWidth,         VY * 1.7],
-          [0,              VY * 1.7],
+          [0,                   VY * 1.7],
         ].map(p => p.join(',')).join(' ')} />
 
-        {/* Pixel mountains — near layer */}
+        {/* Mountains — near */}
         <polygon fill="#2a1048" opacity="0.75" points={[
           [0,                   VY * 1.40],
           [windowWidth * 0.15,  VY * 0.80],
@@ -144,38 +166,48 @@ export function RaceTrack({ race, windowWidth, windowHeight }: Props): React.Rea
           [windowWidth * 0.88,  VY * 1.22],
           [windowWidth,         VY * 1.00],
           [windowWidth,         VY * 1.7],
-          [0,              VY * 1.7],
+          [0,                   VY * 1.7],
         ].map(p => p.join(',')).join(' ')} />
 
-        {/* Left grass shoulder */}
-        <polygon
-          fill="#1f5800"
-          points={`${rl_h},${VY} ${sl_b},${windowHeight} ${rl_b},${windowHeight}`}
-        />
-        {/* Right grass shoulder */}
-        <polygon
-          fill="#1f5800"
-          points={`${rr_h},${VY} ${rr_b},${windowHeight} ${sr_b},${windowHeight}`}
-        />
-        {/* Grass highlight edges */}
+        {/* Grass */}
+        <polygon fill="#1f5800" points={`${rl_h},${VY} ${sl_b},${windowHeight} ${rl_b},${windowHeight}`} />
+        <polygon fill="#1f5800" points={`${rr_h},${VY} ${rr_b},${windowHeight} ${sr_b},${windowHeight}`} />
         <line x1={rl_h} y1={VY} x2={sl_b} y2={windowHeight} stroke="#2e7a00" strokeWidth="3" />
         <line x1={rr_h} y1={VY} x2={sr_b} y2={windowHeight} stroke="#2e7a00" strokeWidth="3" />
 
-        {/* Road surface */}
+        {/* Road */}
         <polygon
           fill="url(#road)"
           points={`${rl_h},${VY} ${rr_h},${VY} ${rr_b},${windowHeight} ${rl_b},${windowHeight}`}
         />
-
-        {/* Road kerb / edge lines */}
         <line x1={rl_h} y1={VY} x2={rl_b} y2={windowHeight} stroke="#eee" strokeWidth="4" opacity="0.65" />
         <line x1={rr_h} y1={VY} x2={rr_b} y2={windowHeight} stroke="#eee" strokeWidth="4" opacity="0.65" />
 
-        {/* Scrolling centre dashes */}
+        {/* Speed lines */}
+        {speedIntensity > 0 && Array.from({ length: 16 }, (_, i) => {
+          const angle = (i / 16) * Math.PI * 2
+          const len   = 120 + speedIntensity * 500
+          const x2    = VX + Math.cos(angle) * len
+          const y2    = VY + Math.sin(angle) * len
+          const col   = i % 3 === 0 ? C.yellow : i % 3 === 1 ? C.orange : C.amber
+          return (
+            <line
+              key={i}
+              x1={VX} y1={VY}
+              x2={x2} y2={y2}
+              stroke={col}
+              strokeWidth={1 + speedIntensity * 2.5}
+              opacity={speedIntensity * 0.28}
+              strokeDasharray="10 6"
+            />
+          )
+        })}
+
+        {/* Centre dashes */}
         {stripes.map((d, i) => {
-          const y   = depthToY(d)
-          const hw  = roadHalf(d) * 0.028
-          const ht  = Math.max(2, d * 14)
+          const y  = depthToY(d)
+          const hw = roadHalf(d) * 0.028
+          const ht = Math.max(2, d * 14)
           return (
             <rect
               key={i}
@@ -187,29 +219,80 @@ export function RaceTrack({ race, windowWidth, windowHeight }: Props): React.Rea
           )
         })}
 
-        {/* Finish line */}
+        {/* ── Finish line + banner ───────────────────────────────────────── */}
         {showFinish && finishDepth > 0.01 && (() => {
-          const y  = depthToY(finishDepth)
-          const hw = roadHalf(finishDepth)
-          const ht = Math.max(4, finishDepth * 20)
-          const n  = 10
-          const sw = (hw * 2) / n
+          const sw = (finishHw * 2) / FINISH_SQUARES
+
           return (
             <>
-              {Array.from({ length: n }, (_, j) => (
-                <rect key={j}
-                  x={VX - hw + j * sw} y={y - ht / 2}
-                  width={sw} height={ht}
-                  fill={j % 2 === 0 ? '#fff' : '#000'}
+              {/* Ground checkerboard strip */}
+              {Array.from({ length: FINISH_SQUARES }, (_, j) => (
+                <rect key={`ch-${j}`}
+                  x={VX - finishHw + j * sw} y={finishY - checkerHt / 2}
+                  width={sw} height={checkerHt}
+                  fill={j % 2 === 0 ? '#fff' : '#111'}
+                  opacity={0.9}
                 />
               ))}
+
+              {/* Left pole */}
+              <rect
+                x={VX - finishHw - poleW / 2} y={poleTopY}
+                width={poleW} height={finishY - poleTopY + checkerHt / 2}
+                fill="#f0f0f0"
+                filter="url(#poleGlow)"
+              />
+              {/* Right pole */}
+              <rect
+                x={VX + finishHw - poleW / 2} y={poleTopY}
+                width={poleW} height={finishY - poleTopY + checkerHt / 2}
+                fill="#f0f0f0"
+                filter="url(#poleGlow)"
+              />
+
+              {/* Overhead banner beam — checkered */}
+              {(() => {
+                const bannerH  = Math.max(10, finishDepth * 48)
+                const bannerY  = poleTopY
+                const bannerW  = finishHw * 2 + poleW
+                const bSqW     = bannerW / 16
+                return Array.from({ length: 16 }, (_, j) => (
+                  <rect key={`bch-${j}`}
+                    x={VX - finishHw - poleW / 2 + j * bSqW}
+                    y={bannerY}
+                    width={bSqW} height={bannerH}
+                    fill={j % 2 === 0 ? '#fff' : '#111'}
+                    opacity={0.9}
+                  />
+                ))
+              })()}
+
+              {/* Neon "FINISH!" text — grows as you approach */}
               <text
-                x={VX} y={y - ht / 2 - 6}
+                x={VX}
+                y={poleTopY - 10}
                 textAnchor="middle"
+                dominantBaseline="auto"
                 fill={C.pink}
-                fontSize={Math.max(8, finishDepth * 26)}
+                fontSize={Math.max(14, finishDepth * 90)}
                 fontFamily="'Press Start 2P', monospace"
-                style={{ imageRendering: 'pixelated' } as React.CSSProperties}
+                filter="url(#finishTextGlow)"
+                style={{ letterSpacing: Math.max(2, finishDepth * 12) } as React.CSSProperties}
+              >
+                FINISH!
+              </text>
+
+              {/* Extra glow halo behind text */}
+              <text
+                x={VX}
+                y={poleTopY - 10}
+                textAnchor="middle"
+                dominantBaseline="auto"
+                fill={C.pink}
+                fontSize={Math.max(14, finishDepth * 90)}
+                fontFamily="'Press Start 2P', monospace"
+                opacity={0.25 * finishDepth}
+                style={{ letterSpacing: Math.max(2, finishDepth * 12), filter: 'blur(18px)' } as React.CSSProperties}
               >
                 FINISH!
               </text>
@@ -218,17 +301,17 @@ export function RaceTrack({ race, windowWidth, windowHeight }: Props): React.Rea
         })()}
       </svg>
 
-      {/* ── Rider sprites — sorted back-to-front for correct z-order ────────── */}
+      {/* ── Rider sprites ─────────────────────────────────────────────────────── */}
       {ridersBackFirst.map((rider) => {
-        const depth      = riderDepth(rider.positionMeters)
-        const y          = depthToY(depth)
-        const scale      = 0.18 + depth * 0.82
+        const depth = riderDepth(rider.positionMeters)
+        const y     = depthToY(depth)
+        const scale = 0.18 + depth * 0.82
 
-        const riderSortedIdx   = sorted.indexOf(rider)
-        const totalRiders      = sorted.length
-        const laneIdxCentered  = riderSortedIdx - (totalRiders - 1) / 2
-        const rw               = roadHalf(depth)
-        const x                = VX + laneIdxCentered * rw * (totalRiders > 1 ? 0.45 : 0)
+        const riderSortedIdx  = sorted.indexOf(rider)
+        const totalRiders     = sorted.length
+        const laneIdxCentered = riderSortedIdx - (totalRiders - 1) / 2
+        const rw              = roadHalf(depth)
+        const x               = VX + laneIdxCentered * rw * (totalRiders > 1 ? 0.45 : 0)
 
         return (
           <RiderAvatar

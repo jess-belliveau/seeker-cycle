@@ -97,9 +97,31 @@ export function RaceHUD({ race, onStop }: Props): React.ReactElement {
 
       {/* Center bottom — distance to finish */}
       <div style={styles.distCenter}>
-        <div style={styles.distNum}>{distLeft}</div>
-        <div style={styles.distLabel}>M TO FINISH</div>
+        <div style={{
+          ...styles.distNum,
+          color: distLeft < 20  ? C.pink   :
+                 distLeft < 50  ? C.orange :
+                 distLeft < 150 ? C.amber  : C.white,
+          textShadow: distLeft < 50
+            ? `6px 6px 0 ${C.black}, 0 0 40px ${distLeft < 20 ? C.pink : C.orange}`
+            : `6px 6px 0 ${C.black}, 0 0 30px rgba(255,238,16,0.4)`,
+          animation: distLeft < 50 ? 'distPulse 0.35s ease-in-out infinite alternate' : undefined,
+        }}>{distLeft}</div>
+        <div style={{
+          ...styles.distLabel,
+          color: distLeft < 20 ? C.pink : distLeft < 50 ? C.orange : C.yellow,
+        }}>M TO FINISH</div>
       </div>
+
+      <style>{`
+        @keyframes distPulse {
+          from { transform: scale(1);    }
+          to   { transform: scale(1.12); }
+        }
+        @keyframes blink {
+          0%,49% { opacity:1; } 50%,100% { opacity:0; }
+        }
+      `}</style>
     </>
   )
 }
