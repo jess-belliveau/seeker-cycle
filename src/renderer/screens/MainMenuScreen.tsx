@@ -17,10 +17,11 @@ interface ModeConfig {
 }
 
 const MODES: ModeConfig[] = [
-  { id: 'race',         label: 'RACE',         description: 'FIRST TO FINISH WINS', accent: C.orange, lbPrimaryLabel: 'BEST TIME',    enabled: true  },
-  { id: 'watts-battle', label: 'WATTS BATTLE', description: '15s POWER BATTLE',     accent: C.cyan,   lbPrimaryLabel: 'BEST AVG WATTS', enabled: true  },
-  { id: 'endurance',    label: 'ENDURANCE',    description: 'HOLD TARGET POWER',    accent: C.purple, lbPrimaryLabel: '',              enabled: false },
-  { id: 'sprint',       label: 'SPRINT',       description: 'MAX EFFORT INTERVALS', accent: C.pink,   lbPrimaryLabel: '',              enabled: false },
+  { id: 'race',         label: 'RACE',         description: 'FIRST TO FINISH WINS', accent: C.orange, lbPrimaryLabel: 'BEST TIME',      enabled: true  },
+  { id: 'tron',         label: 'TRON',         description: 'CIRCLE TRACK RACE',    accent: C.cyan,   lbPrimaryLabel: 'BEST LAP TIME',  enabled: true  },
+  { id: 'watts-battle', label: 'WATTS BATTLE', description: 'POWER BATTLE',         accent: C.pink,   lbPrimaryLabel: 'BEST AVG WATTS', enabled: true  },
+  { id: 'endurance',    label: 'ENDURANCE',    description: 'HOLD TARGET POWER',    accent: C.purple, lbPrimaryLabel: '',               enabled: false },
+  { id: 'sprint',       label: 'SPRINT',       description: 'MAX EFFORT INTERVALS', accent: C.yellow, lbPrimaryLabel: '',               enabled: false },
 ]
 
 // ── Leaderboard building ───────────────────────────────────────────────────────
@@ -44,6 +45,27 @@ function buildRaceLB(sessions: SessionResult[]): LBEntry[] {
   const map = new Map<string, { bestMs: number; wSum: number; count: number }>()
   for (const s of sessions) {
     if (s.config.distanceMeters <= 0) continue
+    if (s.config.modeId === 'tron') continue
+    for (const r of s.riders) {
+      if (r.finishTimeMs === null) continue
+      const e = map.get(r.initials)
+      if (!e) map.set(r.initials, { bestMs: r.finishTimeMs, wSum: r.avgWatts, count: 1 })
+      else   { e.bestMs = Math.min(e.bestMs, r.finishTimeMs); e.wSum += r.avgWatts; e.count++ }
+    }
+  }
+  return [...map.entries()]
+    .map(([initials, d]) => ({
+      initials, primary: fmtTime(d.bestMs), primaryRaw: d.bestMs,
+      avgWatts: Math.round(d.wSum / d.count), races: d.count,
+    }))
+    .sort((a, b) => a.primaryRaw - b.primaryRaw)
+    .slice(0, 8)
+}
+
+function buildTronLB(sessions: SessionResult[]): LBEntry[] {
+  const map = new Map<string, { bestMs: number; wSum: number; count: number }>()
+  for (const s of sessions) {
+    if (s.config.modeId !== 'tron') continue
     for (const r of s.riders) {
       if (r.finishTimeMs === null) continue
       const e = map.get(r.initials)
@@ -81,6 +103,7 @@ function buildBattleLB(sessions: SessionResult[]): LBEntry[] {
 
 function getEntries(modeId: string, sessions: SessionResult[]): LBEntry[] {
   if (modeId === 'race')         return buildRaceLB(sessions)
+  if (modeId === 'tron')         return buildTronLB(sessions)
   if (modeId === 'watts-battle') return buildBattleLB(sessions)
   return []
 }
@@ -347,7 +370,7 @@ const S: Record<string, React.CSSProperties> = {
     padding: '10px 16px', flexShrink: 0,
     borderBottom: '2px solid',
   },
-  lbTitle:   { fontSize: 12, letterSpacing: 3, textShadow: `2px 2px 0 #000` },
+  lbTitle:   { fontSize: 10, letterSpacing: 3, textShadow: `2px 2px 0 #000` },
   lbSubtitle:{ fontSize: 6, color: C.dim, letterSpacing: 2 },
 
   lbList: { display: 'flex', flexDirection: 'column', overflowY: 'auto', flex: 1 },

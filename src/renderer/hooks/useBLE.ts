@@ -1,7 +1,13 @@
 import { useEffect } from 'react'
 import { useDeviceStore } from '../store/deviceStore'
 import { useRaceStore } from '../store/raceStore'
+import { onDemoReading } from '../demoBus'
 import type { TrainerReading } from '../types'
+
+function handleReading(reading: TrainerReading): void {
+  useDeviceStore.getState().updateLiveReading(reading)
+  useRaceStore.getState().applyReading(reading)
+}
 
 export function useBLEDeviceSync(): void {
   useEffect(() => {
@@ -15,15 +21,14 @@ export function useBLEDeviceSync(): void {
       updateDeviceStatus(deviceId, status)
     })
 
-    const unsubReading = window.api.ble.onTrainerReading((reading: TrainerReading) => {
-      useDeviceStore.getState().updateLiveReading(reading)
-      useRaceStore.getState().applyReading(reading)
-    })
+    const unsubReading = window.api.ble.onTrainerReading(handleReading)
+    const unsubDemo    = onDemoReading(handleReading)
 
     return () => {
       unsubDiscover()
       unsubStatus()
       unsubReading()
+      unsubDemo()
     }
   }, [])
 }

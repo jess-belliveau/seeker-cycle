@@ -56,6 +56,7 @@ export interface RaceConfig {
   distanceMeters: number
   countdownSeconds: number
   physicsMode: 'flat-watts' | 'w-per-kg'
+  modeId?: 'race' | 'tron' | 'watts-battle'
 }
 
 export interface RaceState {

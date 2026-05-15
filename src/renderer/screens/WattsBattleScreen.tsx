@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDeviceStore } from '../store/deviceStore'
-import type { SessionResult } from '../types'
+import { onDemoReading } from '../demoBus'
+import type { SessionResult, TrainerReading } from '../types'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -286,9 +287,9 @@ export function WattsBattleScreen(): React.ReactElement {
     return () => clearInterval(id)
   }, [status, durationSecs])
 
-  // BLE reading accumulation
+  // BLE reading accumulation (real + demo devices)
   useEffect(() => {
-    const unsub = window.api.ble.onTrainerReading((reading) => {
+    const handleReading = (reading: TrainerReading): void => {
       setPlayers((prev) =>
         prev.map((p) => {
           if (p.deviceId !== reading.deviceId) return p
@@ -304,8 +305,10 @@ export function WattsBattleScreen(): React.ReactElement {
           }
         })
       )
-    })
-    return unsub
+    }
+    const unsub1 = window.api.ble.onTrainerReading(handleReading)
+    const unsub2 = onDemoReading(handleReading)
+    return () => { unsub1(); unsub2() }
   }, [])
 
   // Navigate to results 3s after finish

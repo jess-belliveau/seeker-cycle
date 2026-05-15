@@ -8,7 +8,7 @@ export function DevicesScreen(): React.ReactElement {
   const navigate = useNavigate()
   const location = useLocation()
   const returnTo = (location.state as { returnTo?: string } | null)?.returnTo ?? null
-  const { discovered, connected, isScanning, setScanning } = useDeviceStore()
+  const { discovered, connected, isScanning, setScanning, addDemoDevice, removeDevice } = useDeviceStore()
 
   const connectedList = Object.values(connected).filter((d) => d.status === 'connected')
 
@@ -57,7 +57,10 @@ export function DevicesScreen(): React.ReactElement {
                   device={d}
                   connected={connected[d.id]}
                   onConnect={(id) => window.api.ble.connect(id).catch(console.error)}
-                  onDisconnect={(id) => window.api.ble.disconnect(id).catch(console.error)}
+                  onDisconnect={(id) => {
+                    if (id.startsWith('demo-')) removeDevice(id)
+                    else window.api.ble.disconnect(id).catch(console.error)
+                  }}
                 />
               ))}
             </div>
@@ -78,6 +81,12 @@ export function DevicesScreen(): React.ReactElement {
             onClick={() => navigate('/menu')}
           >
             ◀ MENU
+          </button>
+          <button
+            style={{ ...pixelBtn(C.purple), ...styles.backBtn2 }}
+            onClick={addDemoDevice}
+          >
+            + DEMO
           </button>
           {connectedList.length > 0 && returnTo && (
             <button

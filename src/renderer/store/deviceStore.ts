@@ -18,6 +18,7 @@ interface DeviceStore {
   assignWeight: (deviceId: string, weightKg: number) => void
   removeDevice: (deviceId: string) => void
   clearAll: () => void
+  addDemoDevice: () => void
 }
 
 export const useDeviceStore = create<DeviceStore>()(
@@ -100,6 +101,23 @@ export const useDeviceStore = create<DeviceStore>()(
         s.connected = {}
         s.liveReadings = {}
         s.isScanning = false
-      })
+      }),
+
+    addDemoDevice: () =>
+      set((s) => {
+        const demoCount = Object.keys(s.connected).filter((id) => id.startsWith('demo-')).length
+        const n = demoCount + 1
+        const id = `demo-${n}`
+        const disc: DiscoveredDevice = {
+          id,
+          name: `DEMO RIDER ${n}`,
+          rssi: -50,
+          profile: 'ftms',
+          serviceUUIDs: [],
+        }
+        const avatarIndex = Object.keys(s.connected).length % 8
+        s.discovered.push(disc)
+        s.connected[id] = { ...disc, status: 'connected', initials: '', avatarIndex }
+      }),
   }))
 )
