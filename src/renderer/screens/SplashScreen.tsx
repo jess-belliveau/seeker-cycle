@@ -169,7 +169,7 @@ export function SplashScreen(): React.ReactElement {
         <div style={styles.cornerBR}>◆</div>
 
         {/* Top label */}
-        <div style={styles.presents}>★ BREWS BREWS BIKES ★ PRESENTS ★</div>
+        <div style={styles.presents}>★ BREWS BREWS & BIKES ★ PRESENTS ★</div>
 
         {/* Main title */}
         <div style={styles.titleSeeker}>SEEKER</div>

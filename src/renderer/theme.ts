@@ -1,4 +1,4 @@
-// California 8-bit color palette
+// 8-bit color palette
 export const C = {
   // Backgrounds
   bgDark:    '#1a0a2e',
