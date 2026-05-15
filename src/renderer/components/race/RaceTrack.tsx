@@ -217,30 +217,54 @@ export function RaceTrack({ race, windowWidth, windowHeight }: Props): React.Rea
         <line x1={rl_h} y1={VY} x2={sl_b} y2={windowHeight} stroke="#2e7a00" strokeWidth="3" />
         <line x1={rr_h} y1={VY} x2={sr_b} y2={windowHeight} stroke="#2e7a00" strokeWidth="3" />
 
-        {/* Crowd silhouettes on grass edges */}
-        {Array.from({ length: 18 }, (_, i) => {
-          const t    = i / 17
-          const d    = 0.05 + t * 0.9
-          const cy2  = depthToY(d)
-          const rw2  = roadHalf(d)
-          const scl  = 0.15 + d * 0.85
-          const figH = scl * 28
-          const figW = scl * 9
-          const gap  = scl * 14
-          // Left side
-          const lx = VX - rw2 - SHOULDER * 0.35 - gap * (i % 3)
-          // Right side
-          const rx = VX + rw2 + SHOULDER * 0.35 + gap * (i % 3)
-          const col = i % 5 === 0 ? C.pink : i % 5 === 1 ? C.cyan : i % 5 === 2 ? C.yellow : '#444'
-          return (
-            <g key={`crowd-${i}`} opacity={0.55 + d * 0.35}>
-              <rect x={lx - figW / 2} y={cy2 - figH} width={figW} height={figH * 0.55} rx={figW / 2} fill={col} />
-              <rect x={lx - figW * 0.3} y={cy2 - figH * 0.45} width={figW * 0.6} height={figH * 0.45} fill={col} />
-              <rect x={rx - figW / 2} y={cy2 - figH} width={figW} height={figH * 0.55} rx={figW / 2} fill={col} />
-              <rect x={rx - figW * 0.3} y={cy2 - figH * 0.45} width={figW * 0.6} height={figH * 0.45} fill={col} />
-            </g>
-          )
-        })}
+        {/* Crowd — world-space positioned + animated cheer */}
+        {(() => {
+          const CROWD_GAP_M = 5
+          const minCI = Math.floor((leaderPos - VIEW_BEHIND_M) / CROWD_GAP_M)
+          const maxCI = Math.ceil((leaderPos + VIEW_AHEAD_M)  / CROWD_GAP_M)
+          const now   = Date.now()
+          const CROWD_COLORS = [C.pink, C.cyan, C.yellow, C.orange, C.purple, C.green]
+          const figs: React.ReactElement[] = []
+
+          for (let i = minCI; i <= maxCI; i++) {
+            const rel = i * CROWD_GAP_M - leaderPos
+            let depth: number
+            if      (rel >= 0 && rel <=  VIEW_AHEAD_M)  depth = LEADER_DEPTH * (1 - rel / VIEW_AHEAD_M)
+            else if (rel <  0 && rel >= -VIEW_BEHIND_M)  depth = LEADER_DEPTH + (-rel / VIEW_BEHIND_M) * (1 - LEADER_DEPTH) * 0.65
+            else continue
+
+            const fy      = depthToY(depth)
+            const rw2     = roadHalf(depth)
+            const scl     = 0.12 + depth * 0.88
+            const figH    = scl * 26
+            const figW    = scl * 7
+            const headR   = figW * 0.6
+            const armLen  = figH * 0.42
+            const col     = CROWD_COLORS[((i * 3 + 7) % CROWD_COLORS.length + CROWD_COLORS.length) % CROWD_COLORS.length]
+            const phase   = i * 2.31
+            const wave    = Math.sin(now / 360 + phase)
+            const sideOff = (Math.abs(i) % 3) * scl * 10
+
+            const sides: Array<[string, number]> = [
+              ['l', VX - rw2 - SHOULDER * 0.28 - sideOff],
+              ['r', VX + rw2 + SHOULDER * 0.28 + sideOff],
+            ]
+            for (const [side, fx] of sides) {
+              const shoulderY = fy - figH * 0.42
+              const ax = fx + wave * armLen * 0.4
+              const ay = shoulderY - (0.25 + wave * 0.35) * armLen
+              figs.push(
+                <g key={`crowd-${i}-${side}`} opacity={0.55 + depth * 0.38}>
+                  <rect x={fx - figW / 2} y={fy - figH} width={figW} height={figH * 0.62} fill={col} />
+                  <circle cx={fx} cy={fy - figH - headR * 0.5} r={headR} fill={col} />
+                  <line x1={fx} y1={shoulderY} x2={ax} y2={ay}
+                    stroke={col} strokeWidth={figW * 0.5} strokeLinecap="round" />
+                </g>
+              )
+            }
+          }
+          return figs
+        })()}
 
         {/* Road */}
         <polygon
