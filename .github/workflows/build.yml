@@ -31,10 +31,10 @@ jobs:
 
           # Linux (pinned to 22.04 — ubuntu-latest/24.04 ships GCC 13 which breaks
           # @abandonware/bluetooth-hci-socket's C++ at compile time)
-          - os: ubuntu-22.04
-            label: linux-x64
-            electron_arch: x64
-            artifact_glob: dist/*.AppImage
+          # - os: ubuntu-22.04
+          #  label: linux-x64
+          #  electron_arch: x64
+          #  artifact_glob: dist/*.AppImage
 
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.label }}
