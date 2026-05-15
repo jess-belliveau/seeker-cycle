@@ -13,19 +13,42 @@ function fmt(ms: number): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
+function PowerBar({ watts, color }: { watts: number; color: string }): React.ReactElement {
+  return (
+    <div style={{ display: 'flex', gap: 3, marginTop: 4 }}>
+      {Array.from({ length: 10 }, (_, i) => {
+        const threshold = (i + 1) * 40
+        const lit = watts >= threshold
+        return (
+          <div key={i} style={{
+            flex: 1, height: 8,
+            background: lit ? color : C.bgLight,
+            boxShadow: lit ? `0 0 8px ${color}` : 'none',
+          }} />
+        )
+      })}
+    </div>
+  )
+}
+
 interface Props {
   race:   RaceState
   onStop: () => void
 }
 
 function RiderPanel({ rider, align }: { rider: RiderState; align: 'left' | 'right' }): React.ReactElement {
-  const color   = RIDER_COLORS[rider.avatarIndex % RIDER_COLORS.length]
-  const watts   = Math.round(rider.currentWatts)
-  const kmh     = (rider.velocityMs * 3.6).toFixed(1)
+  const color    = RIDER_COLORS[rider.avatarIndex % RIDER_COLORS.length]
+  const watts    = Math.round(rider.currentWatts)
+  const kmh      = (rider.velocityMs * 3.6).toFixed(1)
+  const rpm      = Math.round(rider.currentRpm)
   const finished = rider.finishTimeMs !== null
 
   return (
-    <div style={{ ...styles.panel, ...(align === 'right' ? styles.panelRight : styles.panelLeft) }}>
+    <div style={{
+      ...styles.panel,
+      ...(align === 'right' ? styles.panelRight : styles.panelLeft),
+      borderColor: color,
+    }}>
       {/* Rank + initials row */}
       <div style={styles.panelHeader}>
         {rider.rank !== null && (
@@ -47,10 +70,19 @@ function RiderPanel({ rider, align }: { rider: RiderState; align: 'left' | 'righ
         <span style={{ ...styles.wattsUnit, color: finished ? C.dim : color }}>W</span>
       </div>
 
-      {/* Speed */}
-      <div style={styles.speedRow}>
-        <span style={{ ...styles.speedNum, color: C.white }}>{kmh}</span>
-        <span style={styles.speedUnit}>km/h</span>
+      {/* Power bar */}
+      <PowerBar watts={watts} color={finished ? C.dim : color} />
+
+      {/* Speed + RPM row */}
+      <div style={styles.statsRow}>
+        <div style={styles.statGroup}>
+          <span style={{ ...styles.speedNum, color: C.white }}>{kmh}</span>
+          <span style={styles.speedUnit}>km/h</span>
+        </div>
+        <div style={styles.statGroup}>
+          <span style={{ ...styles.rpmNum, color: C.dim }}>{rpm}</span>
+          <span style={styles.rpmUnit}>rpm</span>
+        </div>
       </div>
     </div>
   )
@@ -62,7 +94,6 @@ export function RaceHUD({ race, onStop }: Props): React.ReactElement {
   const leader   = sorted[0]
   const distLeft = Math.max(0, Math.round(race.config.distanceMeters - (leader?.positionMeters ?? 0)))
 
-  // Split riders: even indices → left, odd → right
   const leftRiders  = sorted.filter((_, i) => i % 2 === 0)
   const rightRiders = sorted.filter((_, i) => i % 2 === 1)
 
@@ -126,7 +157,7 @@ export function RaceHUD({ race, onStop }: Props): React.ReactElement {
   )
 }
 
-const PANEL_BG = 'rgba(0,0,0,0.72)'
+const PANEL_BG = 'rgba(0,0,0,0.82)'
 
 const styles: Record<string, React.CSSProperties> = {
   topBar: {
@@ -162,10 +193,10 @@ const styles: Record<string, React.CSSProperties> = {
   // Rider panel
   panel: {
     background: PANEL_BG,
-    border: `3px solid ${C.borderDim}`,
+    border: `3px solid`,
     boxShadow: `4px 4px 0 ${C.black}`,
-    padding: '10px 16px',
-    minWidth: 160,
+    padding: '12px 18px',
+    minWidth: 240,
   },
   panelLeft:  {},
   panelRight: { alignItems: 'flex-end' },
@@ -175,14 +206,14 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 4,
   },
   rankBadge: {
-    fontSize: 8, color: C.black,
+    fontSize: 9, color: C.black,
     fontFamily: "'Press Start 2P', monospace",
-    padding: '2px 5px',
+    padding: '3px 6px',
     boxShadow: '2px 2px 0 #000',
     lineHeight: 1.4,
   },
   initials: {
-    fontSize: 13, letterSpacing: 2,
+    fontSize: 16, letterSpacing: 3,
     textShadow: `2px 2px 0 ${C.black}`,
   },
   finishedTag: {
@@ -192,21 +223,31 @@ const styles: Record<string, React.CSSProperties> = {
 
   wattsRow: { display: 'flex', alignItems: 'baseline', gap: 4 },
   wattsNum: {
-    fontSize: 64, lineHeight: 1,
+    fontSize: 88, lineHeight: 1,
     textShadow: `4px 4px 0 ${C.black}`,
   },
   wattsUnit: {
-    fontSize: 24,
+    fontSize: 28,
     textShadow: `2px 2px 0 ${C.black}`,
   },
 
-  speedRow: { display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 },
+  statsRow: {
+    display: 'flex', alignItems: 'baseline', gap: 16, marginTop: 6,
+  },
+  statGroup: {
+    display: 'flex', alignItems: 'baseline', gap: 4,
+  },
   speedNum: {
-    fontSize: 28, lineHeight: 1,
+    fontSize: 32, lineHeight: 1,
     textShadow: `2px 2px 0 ${C.black}`,
     fontVariantNumeric: 'tabular-nums',
   },
   speedUnit: { fontSize: 9, color: C.dim, letterSpacing: 1 },
+  rpmNum: {
+    fontSize: 22, lineHeight: 1,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  rpmUnit: { fontSize: 7, color: C.dim, letterSpacing: 1 },
 
   // Center bottom distance
   distCenter: {

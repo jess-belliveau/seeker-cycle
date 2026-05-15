@@ -18,8 +18,8 @@ export function RiderAvatar({ rider, x, y, scale }: Props): React.ReactElement {
   const color    = RIDER_COLORS[rider.avatarIndex % RIDER_COLORS.length]
   const finished = rider.finishTimeMs !== null
 
-  const BASE_W  = 46
-  const BASE_H  = 58
+  const BASE_W  = 80
+  const BASE_H  = 100
   const w       = BASE_W * scale
   const h       = BASE_H * scale
   const fnt     = Math.max(5, Math.round(scale * 9))
@@ -72,18 +72,6 @@ export function RiderAvatar({ rider, x, y, scale }: Props): React.ReactElement {
         {rider.initials || '??'}
       </div>
 
-      {/* Watts */}
-      <div style={{
-        position: 'absolute',
-        bottom: -fnt * 4.2,
-        left: '50%', transform: 'translateX(-50%)',
-        color, fontSize: fntSm,
-        fontFamily: "'Press Start 2P', monospace",
-        textShadow: '1px 1px 0 #000',
-        whiteSpace: 'nowrap',
-      }}>
-        {Math.round(rider.currentWatts)}W
-      </div>
     </div>
   )
 }

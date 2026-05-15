@@ -3,6 +3,11 @@ import type { RaceState } from '../../types'
 import { C } from '../../theme'
 import { RiderAvatar } from './RiderAvatar'
 
+const RIDER_COLORS = [
+  C.pink, C.orange, C.yellow, C.green,
+  C.cyan, C.purple, '#ff8c00', C.white,
+]
+
 // ─── Perspective constants ────────────────────────────────────────────────────
 
 const VY_PCT         = 0.38
@@ -25,7 +30,7 @@ export function RaceTrack({ race, windowWidth, windowHeight }: Props): React.Rea
   const riders     = Object.values(race.riders)
   const sorted     = [...riders].sort((a, b) => b.positionMeters - a.positionMeters)
   const leaderPos  = sorted[0]?.positionMeters ?? 0
-  const leaderVel  = sorted[0]?.velocityMs ?? 0
+
 
   const VX          = windowWidth  * 0.5
   const VY          = windowHeight * VY_PCT
@@ -70,11 +75,6 @@ export function RaceTrack({ race, windowWidth, windowHeight }: Props): React.Rea
   const distToFinish = race.config.distanceMeters - leaderPos
   const showFinish   = distToFinish >= 0 && distToFinish <= VIEW_AHEAD_M
   const finishDepth  = showFinish ? LEADER_DEPTH * (1 - distToFinish / VIEW_AHEAD_M) : 0
-
-  // ── Speed lines ───────────────────────────────────────────────────────────
-  // Radial streaks from the vanishing point at speed > 5 m/s
-
-  const speedIntensity = Math.max(0, Math.min(1, (leaderVel - 5) / 12))
 
   // ── Road geometry ──────────────────────────────────────────────────────────
 
@@ -130,10 +130,24 @@ export function RaceTrack({ race, windowWidth, windowHeight }: Props): React.Rea
             <feGaussianBlur stdDeviation="8" result="blur" />
             <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
+          <filter id="horizGlow" x="-20%" y="-400%" width="140%" height="900%">
+            <feGaussianBlur stdDeviation="10" />
+          </filter>
+          <filter id="groundGlow" x="-60%" y="-200%" width="220%" height="600%">
+            <feGaussianBlur stdDeviation="8" />
+          </filter>
         </defs>
 
         {/* Sky */}
         <rect x={0} y={0} width={windowWidth} height={windowHeight} fill="url(#sky)" />
+
+        {/* Stars */}
+        {Array.from({ length: 32 }, (_, i) => {
+          const sx = ((i * 137 + 23) % 97) / 97 * windowWidth
+          const sy = ((i * 71  + 11) % 89) / 89 * VY * 0.88
+          const r  = 0.7 + (i % 3) * 0.65
+          return <circle key={`star-${i}`} cx={sx} cy={sy} r={r} fill="#fff" opacity={0.35 + (i % 5) * 0.13} />
+        })}
 
         {/* Sun */}
         <circle cx={VX} cy={VY} r={130} fill="url(#sun)" />
@@ -169,11 +183,64 @@ export function RaceTrack({ race, windowWidth, windowHeight }: Props): React.Rea
           [0,                   VY * 1.7],
         ].map(p => p.join(',')).join(' ')} />
 
+        {/* City skyline silhouette — behind mountains */}
+        {Array.from({ length: 22 }, (_, i) => {
+          const bw = 18 + (i * 47) % 38
+          const bh = 30 + (i * 31) % 70
+          const bx = (i / 22) * windowWidth * 1.1 - windowWidth * 0.05 + ((i * 53) % 40) - 20
+          const by = VY - bh + 4
+          const hasWindow = i % 3 !== 0
+          return (
+            <g key={`bld-${i}`}>
+              <rect x={bx} y={by} width={bw} height={bh + 8} fill="#110822" opacity={0.85} />
+              {hasWindow && Array.from({ length: Math.floor(bh / 14) }, (_, j) => (
+                <rect key={j}
+                  x={bx + 5} y={by + 6 + j * 14}
+                  width={bw - 10} height={5}
+                  fill={i % 4 === 0 ? C.cyan : i % 4 === 1 ? C.purple : C.orange}
+                  opacity={0.25 + (j % 2) * 0.15}
+                />
+              ))}
+            </g>
+          )
+        })}
+
+        {/* Horizon neon glow */}
+        <rect x={0} y={VY - 3} width={windowWidth} height={6}
+          fill={C.orange} opacity={0.55} filter="url(#horizGlow)" />
+        <rect x={0} y={VY - 1} width={windowWidth} height={2}
+          fill="#fff" opacity={0.7} />
+
         {/* Grass */}
         <polygon fill="#1f5800" points={`${rl_h},${VY} ${sl_b},${windowHeight} ${rl_b},${windowHeight}`} />
         <polygon fill="#1f5800" points={`${rr_h},${VY} ${rr_b},${windowHeight} ${sr_b},${windowHeight}`} />
         <line x1={rl_h} y1={VY} x2={sl_b} y2={windowHeight} stroke="#2e7a00" strokeWidth="3" />
         <line x1={rr_h} y1={VY} x2={sr_b} y2={windowHeight} stroke="#2e7a00" strokeWidth="3" />
+
+        {/* Crowd silhouettes on grass edges */}
+        {Array.from({ length: 18 }, (_, i) => {
+          const t    = i / 17
+          const d    = 0.05 + t * 0.9
+          const cy2  = depthToY(d)
+          const rw2  = roadHalf(d)
+          const scl  = 0.15 + d * 0.85
+          const figH = scl * 28
+          const figW = scl * 9
+          const gap  = scl * 14
+          // Left side
+          const lx = VX - rw2 - SHOULDER * 0.35 - gap * (i % 3)
+          // Right side
+          const rx = VX + rw2 + SHOULDER * 0.35 + gap * (i % 3)
+          const col = i % 5 === 0 ? C.pink : i % 5 === 1 ? C.cyan : i % 5 === 2 ? C.yellow : '#444'
+          return (
+            <g key={`crowd-${i}`} opacity={0.55 + d * 0.35}>
+              <rect x={lx - figW / 2} y={cy2 - figH} width={figW} height={figH * 0.55} rx={figW / 2} fill={col} />
+              <rect x={lx - figW * 0.3} y={cy2 - figH * 0.45} width={figW * 0.6} height={figH * 0.45} fill={col} />
+              <rect x={rx - figW / 2} y={cy2 - figH} width={figW} height={figH * 0.55} rx={figW / 2} fill={col} />
+              <rect x={rx - figW * 0.3} y={cy2 - figH * 0.45} width={figW * 0.6} height={figH * 0.45} fill={col} />
+            </g>
+          )
+        })}
 
         {/* Road */}
         <polygon
@@ -183,22 +250,32 @@ export function RaceTrack({ race, windowWidth, windowHeight }: Props): React.Rea
         <line x1={rl_h} y1={VY} x2={rl_b} y2={windowHeight} stroke="#eee" strokeWidth="4" opacity="0.65" />
         <line x1={rr_h} y1={VY} x2={rr_b} y2={windowHeight} stroke="#eee" strokeWidth="4" opacity="0.65" />
 
-        {/* Speed lines */}
-        {speedIntensity > 0 && Array.from({ length: 16 }, (_, i) => {
-          const angle = (i / 16) * Math.PI * 2
-          const len   = 120 + speedIntensity * 500
-          const x2    = VX + Math.cos(angle) * len
-          const y2    = VY + Math.sin(angle) * len
-          const col   = i % 3 === 0 ? C.yellow : i % 3 === 1 ? C.orange : C.amber
+        {/* Neon road edge glow strips */}
+        <line x1={rl_h} y1={VY} x2={rl_b} y2={windowHeight}
+          stroke={C.cyan} strokeWidth="6" opacity="0.18" filter="url(#horizGlow)" />
+        <line x1={rr_h} y1={VY} x2={rr_b} y2={windowHeight}
+          stroke={C.cyan} strokeWidth="6" opacity="0.18" filter="url(#horizGlow)" />
+
+        {/* Per-rider ground glow */}
+        {sorted.map((rider) => {
+          const depth  = riderDepth(rider.positionMeters)
+          const ry     = depthToY(depth)
+          const scale  = 0.18 + depth * 0.82
+          const riderSortedIdx  = sorted.indexOf(rider)
+          const totalRiders     = sorted.length
+          const laneIdxCentered = riderSortedIdx - (totalRiders - 1) / 2
+          const rw              = roadHalf(depth)
+          const rx              = VX + laneIdxCentered * rw * (totalRiders > 1 ? 0.45 : 0)
+          const color           = RIDER_COLORS[rider.avatarIndex % RIDER_COLORS.length]
+          const glowSize        = 1 + Math.min(1, rider.currentWatts / 350)
           return (
-            <line
-              key={i}
-              x1={VX} y1={VY}
-              x2={x2} y2={y2}
-              stroke={col}
-              strokeWidth={1 + speedIntensity * 2.5}
-              opacity={speedIntensity * 0.28}
-              strokeDasharray="10 6"
+            <ellipse key={`glow-${rider.deviceId}`}
+              cx={rx} cy={ry}
+              rx={38 * scale * glowSize}
+              ry={10 * scale * glowSize}
+              fill={color}
+              opacity={0.18 + Math.min(0.28, rider.currentWatts / 1200)}
+              filter="url(#groundGlow)"
             />
           )
         })}

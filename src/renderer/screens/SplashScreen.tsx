@@ -384,10 +384,6 @@ const css = `
   0%   { letter-spacing: 32px; opacity: 0; }
   100% { letter-spacing: 20px; opacity: 1; }
 }
-@keyframes scanIn {
-  0%   { clip-path: inset(0 100% 0 0); }
-  100% { clip-path: inset(0 0% 0 0); }
-}
 @keyframes wavePulse {
   0%,100% { transform: translateX(0)   scaleY(1);   }
   50%     { transform: translateX(-80px) scaleY(1.1); }

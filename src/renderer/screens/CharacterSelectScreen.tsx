@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useDeviceStore } from '../store/deviceStore'
-import { SlotInitialsInput } from '../components/devices/SlotInitialsInput'
 import { C, pixelBtn, sunsetBg } from '../theme'
 
 // ─── Character definitions ───────────────────────────────────────────────────
@@ -162,7 +161,6 @@ export function CharacterSelectScreen(): React.ReactElement {
     }))
   )
 
-  const [initialsMode, setInitialsMode] = useState<'TYPE' | 'BIKE'>('TYPE')
   const [previewIdx, setPreviewIdx] = useState<number>(0)
 
   // Current slot = first slot where initials not yet complete
@@ -367,31 +365,10 @@ export function CharacterSelectScreen(): React.ReactElement {
                 </span>
                 {' '}— ENTER INITIALS
               </span>
-              <div style={styles.modeToggle}>
-                {(['TYPE', 'BIKE'] as const).map((m) => (
-                  <button
-                    key={m}
-                    style={{
-                      ...styles.modeBtn,
-                      ...(initialsMode === m ? styles.modeBtnActive : {}),
-                    }}
-                    onClick={() => setInitialsMode(m)}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
-              {initialsMode === 'TYPE' ? (
-                <TypeInitials
-                  slotIdx={currentSlotIdx}
-                  onComplete={handleInitialsComplete}
-                />
-              ) : (
-                <SlotInitialsInput
-                  deviceId={currentSlot.deviceId}
-                  onComplete={handleInitialsComplete}
-                />
-              )}
+              <TypeInitials
+                slotIdx={currentSlotIdx}
+                onComplete={handleInitialsComplete}
+              />
             </div>
           )}
         </div>
@@ -590,24 +567,6 @@ const styles: Record<string, React.CSSProperties> = {
   },
   promptInitialsRow: {
     display: 'flex', alignItems: 'center', gap: 16, width: '100%',
-  },
-  modeToggle: {
-    display: 'flex', gap: 4,
-  },
-  modeBtn: {
-    padding: '6px 10px', fontSize: 7,
-    background: C.bgLight,
-    border: `2px solid ${C.muted}`,
-    color: C.dim,
-    cursor: 'pointer',
-    fontFamily: "'Press Start 2P', monospace",
-    boxShadow: `2px 2px 0 ${C.black}`,
-  },
-  modeBtnActive: {
-    background: C.bgMid,
-    border: `2px solid ${C.cyan}`,
-    color: C.cyan,
-    boxShadow: `2px 2px 0 ${C.black}, 0 0 8px ${C.cyan}`,
   },
   typeInput: {
     background: '#0a0a14',
