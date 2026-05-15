@@ -60,7 +60,7 @@ export function ResultsScreen(): React.ReactElement {
           const rider = podium[idx]
           if (!rider) return <div key={idx} style={{ width: 140 }} />
           const color = RIDER_COLORS[rider.avatarIndex % RIDER_COLORS.length]
-          const heights = [90, 130, 72]
+          const heights = [130, 90, 72]
           const podiumColors = [C.yellow, C.white, C.amber]
           return (
             <div key={idx} style={styles.podiumSlot}>
@@ -108,7 +108,12 @@ export function ResultsScreen(): React.ReactElement {
         <button style={{ ...pixelBtn(C.dim), ...styles.actionBtn }}
           onClick={() => navigate('/menu')}>MENU</button>
         <button style={{ ...pixelBtn(C.green), ...styles.actionBtn }}
-          onClick={() => navigate('/character-select')}>RACE AGAIN ▶</button>
+          onClick={() => {
+            const dest = result.config.modeId === 'tron'         ? '/tron'
+                       : result.config.modeId === 'watts-battle' ? '/watts-battle'
+                       : '/race'
+            navigate('/character-select', { state: { destination: dest } })
+          }}>RACE AGAIN ▶</button>
       </div>
     </div>
   )

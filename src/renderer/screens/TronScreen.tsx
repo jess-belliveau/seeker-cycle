@@ -11,11 +11,20 @@ import type { SessionResult } from '../types'
 
 const DISTANCE_OPTIONS = [250, 500, 1000, 2000]
 const COUNTDOWN_START  = 5
-const CX = 300
-const CY = 300
-const R  = 215
-const STROKE_W    = 20
-const CIRCUMFERENCE = 2 * Math.PI * R
+const CX          = 300
+const CY          = 300
+const R_CENTER    = 210   // radius of the middle lane
+const STROKE_W    = 16
+const RING_SPACING = STROKE_W + 8  // gap between ring centres = 24px
+
+function riderRadius(laneIdx: number, totalRiders: number): number {
+  const offset = (laneIdx - (totalRiders - 1) / 2) * RING_SPACING
+  return R_CENTER + offset
+}
+
+// Use the outermost possible radius for circumference (doesn't matter which —
+// strokeDasharray and strokeDashoffset must use each ring's own circumference)
+function circumference(r: number): number { return 2 * Math.PI * r }
 
 type ScreenStatus = 'setup' | 'countdown' | 'racing' | 'finished'
 
@@ -273,31 +282,51 @@ export function TronScreen(): React.ReactElement {
               </filter>
             </defs>
 
-            {/* Track guide */}
-            <circle cx={CX} cy={CY} r={R} fill="none" stroke={C.muted} strokeWidth={STROKE_W + 4} opacity={0.2} />
-            <circle cx={CX} cy={CY} r={R} fill="none" stroke={C.bgLight} strokeWidth={STROKE_W - 6} opacity={0.4} />
+            {/* Track guide rings — one per rider lane */}
+            {riderList.map((_, i) => {
+              const rr = riderRadius(i, riderList.length)
+              return (
+                <g key={`guide-${i}`}>
+                  <circle cx={CX} cy={CY} r={rr} fill="none" stroke={C.muted}    strokeWidth={STROKE_W + 4} opacity={0.15} />
+                  <circle cx={CX} cy={CY} r={rr} fill="none" stroke={C.bgLight}  strokeWidth={STROKE_W - 8} opacity={0.35} />
+                </g>
+              )
+            })}
 
-            {/* 12 o'clock start marker */}
-            <line x1={CX} y1={CY - R - 16} x2={CX} y2={CY - R + 6} stroke={C.white} strokeWidth={3} opacity={0.7} />
+            {/* 12 o'clock start marker — spans all rings */}
+            {(() => {
+              const outerR = riderRadius(riderList.length - 1, riderList.length)
+              const innerR = riderRadius(0, riderList.length)
+              return (
+                <line
+                  x1={CX} y1={CY - outerR - 12}
+                  x2={CX} y2={CY - innerR + 12}
+                  stroke={C.white} strokeWidth={3} opacity={0.6}
+                />
+              )
+            })()}
 
-            {/* Per-rider arcs (largest progress = bottom layer, rendered first) */}
+            {/* Per-rider arcs — each on its own concentric ring */}
             {arcRiders.map((r) => {
+              const laneIdx  = riderList.findIndex((x) => x.deviceId === r.deviceId)
+              const rr       = riderRadius(laneIdx, riderList.length)
+              const circ     = circumference(rr)
               const color    = getColor(r)
               const progress = Math.min(1, r.positionMeters / currentDistance)
-              const offset   = CIRCUMFERENCE * (1 - progress)
+              const offset   = circ * (1 - progress)
               const angle    = progress * 2 * Math.PI - Math.PI / 2
-              const hx       = CX + R * Math.cos(angle)
-              const hy       = CY + R * Math.sin(angle)
+              const hx       = CX + rr * Math.cos(angle)
+              const hy       = CY + rr * Math.sin(angle)
 
               return (
                 <g key={r.deviceId}>
                   {/* Arc */}
                   <circle
-                    cx={CX} cy={CY} r={R}
+                    cx={CX} cy={CY} r={rr}
                     fill="none"
                     stroke={color}
                     strokeWidth={STROKE_W}
-                    strokeDasharray={CIRCUMFERENCE}
+                    strokeDasharray={circ}
                     strokeDashoffset={offset}
                     strokeLinecap="butt"
                     transform={`rotate(-90 ${CX} ${CY})`}
@@ -306,9 +335,8 @@ export function TronScreen(): React.ReactElement {
                   {/* Head dot */}
                   {progress > 0 && (
                     <circle
-                      cx={hx} cy={hy} r={12}
+                      cx={hx} cy={hy} r={10}
                       fill={color}
-                      filter="url(#glow)"
                       style={{ filter: `drop-shadow(0 0 10px ${color}) drop-shadow(0 0 4px #fff)` }}
                     />
                   )}
