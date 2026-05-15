@@ -29,8 +29,9 @@ jobs:
             electron_arch: x64
             artifact_glob: dist/*.exe
 
-          # Linux
-          - os: ubuntu-latest
+          # Linux (pinned to 22.04 — ubuntu-latest/24.04 ships GCC 13 which breaks
+          # @abandonware/bluetooth-hci-socket's C++ at compile time)
+          - os: ubuntu-22.04
             label: linux-x64
             electron_arch: x64
             artifact_glob: dist/*.AppImage
@@ -48,8 +49,10 @@ jobs:
 
       # libbluetooth-dev / libudev-dev are needed to compile @abandonware/noble on Linux
       - name: Install Linux system dependencies
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get install -y libusb-1.0-0-dev libudev-dev libbluetooth-dev
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y libusb-1.0-0-dev libudev-dev libbluetooth-dev
 
       # npm ci runs postinstall which calls electron-rebuild for @abandonware/noble
       - name: Install dependencies
