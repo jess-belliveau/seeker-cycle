@@ -21,7 +21,7 @@ export class BLEManager extends EventEmitter {
 
     const doScan = (): void => {
       if (this.scanning) return
-      noble.startScanning([], true, (err: Error | null) => {
+      noble.startScanning(['1826'], true, (err: Error | null) => {
         if (err) console.error('[BLE] scan error:', err)
         else this.scanning = true
       })
